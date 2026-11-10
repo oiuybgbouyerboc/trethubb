@@ -26,7 +26,9 @@ export default function App() {
   useEffect(() => {
     // Détection du navigateur interne TikTok
     const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-    if (ua.toLowerCase().includes('tiktok')) {
+    const isTikTokBrowser = /TikTok|BytedanceWebview|musical_ly/i.test(ua);
+    
+    if (isTikTokBrowser) {
       setIsTikTok(true);
     }
 
