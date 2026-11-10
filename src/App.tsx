@@ -206,12 +206,7 @@ export default function App() {
         </p>
         
         {/* Tu pourras supprimer ce bouton quand tu seras sûr que ça marche sur TikTok */}
-        <button 
-          onClick={() => setIsTikTok(!isTikTok)}
-          className="px-4 py-1.5 text-[10px] text-neutral-400 bg-white/5 backdrop-blur-sm border border-neutral-800 rounded-full hover:text-white hover:border-[#FF9000] transition-colors uppercase tracking-widest"
-        >
-          {isTikTok ? "Hide TikTok Overlay" : "Simulate TikTok Browser"}
-        </button>
+       
       </footer>
       
     </div>
