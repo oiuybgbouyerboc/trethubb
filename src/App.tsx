@@ -16,24 +16,24 @@ export default function App() {
   const [isTikTok, setIsTikTok] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
-  // Tes 3 images de fond (placées dans ton dossier public)
+  // Tes images locales (Place les photos bg1.jpg, bg2.jpg et bg3.jpg dans le dossier public/)
   const bgImages = [
-    "/bg1.jpg", 
-    "/bg2.jpg", 
+    "/bg1.jpg",
+    "/bg2.jpg",
     "/bg3.jpg"
   ];
 
   useEffect(() => {
-    // Detect TikTok internal browser
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    // Détection du navigateur interne TikTok
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
     if (ua.toLowerCase().includes('tiktok')) {
       setIsTikTok(true);
     }
 
-    // Background Slider Interval
+    // Carrousel d'images de fond
     const interval = setInterval(() => {
       setCurrentBgIndex((prevIndex) => (prevIndex + 1) % bgImages.length);
-    }, 5000); // Change image every 5 seconds
+    }, 5000); // Change l'image toutes les 5 secondes
 
     return () => clearInterval(interval);
   }, []);
@@ -41,7 +41,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-sans relative overflow-x-hidden flex flex-col items-center selection:bg-[#FF9000] selection:text-black">
       
-      {/* Dynamic Background Slider with Dark Overlay */}
+      {/* Dynamic Background Slider */}
       <div className="fixed inset-0 z-0">
         {bgImages.map((img, index) => (
           <div 
@@ -51,11 +51,11 @@ export default function App() {
             <img src={img} alt="Skincare background" className="w-full h-full object-cover" />
           </div>
         ))}
-        {/* Very dark overlay to ensure text readability */}
+        {/* Filtre sombre pour garantir la lisibilité du texte */}
         <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-sm"></div>
       </div>
 
-      {/* TikTok Warning Overlay (Highest z-index) */}
+      {/* Alerte TikTok (S'affiche uniquement si isTikTok est vrai) */}
       {isTikTok && (
         <div className="fixed inset-0 z-[100] pointer-events-none flex flex-col items-center">
           <div className="absolute top-4 right-4 sm:right-6 animate-bounce text-[#FF9000] drop-shadow-[0_0_15px_rgba(255,144,0,0.8)]">
@@ -78,10 +78,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content (Glassmorphism layered above background) */}
+      {/* Main Content (Glassmorphism au-dessus du fond) */}
       <main className="w-full max-w-xl relative z-10 flex flex-col pt-12 pb-24 px-4 sm:px-6">
         
-        {/* Header Logo */}
+        {/* Logo */}
         <div className="flex flex-col items-center justify-center mb-8">
           <div className="flex items-center justify-center text-5xl font-extrabold tracking-tight select-none shadow-black drop-shadow-2xl">
             <span className="text-white">Tret</span>
@@ -92,7 +92,7 @@ export default function App() {
           </p>
         </div>
 
-        {/* Trust Indicators (Crucial for conversion) */}
+        {/* Trust Indicators */}
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="flex flex-col items-center justify-center p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-center">
             <ShieldCheck className="w-6 h-6 text-[#FF9000] mb-2" />
@@ -108,17 +108,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Available Products Tagline */}
+        {/* Description mise à jour avec Ascend et Glow Up */}
         <div className="mb-8 text-center px-4">
           <p className="text-sm text-neutral-400 font-light leading-relaxed">
-            Specializing in premium skincare actives to <span className="text-white font-bold">ascend</span> and get a massive <span className="text-white font-bold">glow-up</span>.<br/>
-            <span className="text-white font-medium mt-1 inline-block">Tretinoin, Azelaic Acid, and Tazarotene.</span>
+            Specializing in premium skincare actives to <strong className="text-white">ascend</strong> and get a massive <strong className="text-white">glow-up</strong>.<br/>
+            Tretinoin, Azelaic Acid, and Tazarotene.
           </p>
         </div>
 
-        {/* The Stealth Process Explanation - Builds Trust */}
+        {/* Menu explicatif */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8 shadow-2xl relative overflow-hidden">
-          {/* Subtle accent glow inside card */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF9000] rounded-full mix-blend-screen filter blur-[80px] opacity-20 pointer-events-none"></div>
           
           <h2 className="text-white font-bold text-lg mb-5 flex items-center gap-2">
@@ -161,24 +160,20 @@ export default function App() {
           </div>
         </div>
 
-        {/* Call to Actions */}
+        {/* Boutons d'action avec tes VRAIS liens */}
         <div className="flex flex-col gap-4">
           
-          {/* Primary CTA */}
           <a
             href="https://t.me/TretHub"
             target="_blank"
             rel="noopener noreferrer"
             className="group relative w-full flex items-center justify-center gap-3 bg-[#FF9000] hover:bg-[#ff9d21] text-black font-bold text-lg py-5 px-6 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(255,144,0,0.3)] hover:shadow-[0_0_40px_rgba(255,144,0,0.5)] hover:-translate-y-1 overflow-hidden"
           >
-            {/* Button Shine Effect */}
             <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-            
             <Send className="w-6 h-6" />
             Access Telegram (Buy Here)
           </a>
 
-          {/* Secondary CTAs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
             <a
               href="https://t.me/TretHubReviews"
@@ -201,16 +196,15 @@ export default function App() {
             </a>
           </div>
         </div>
-
       </main>
 
-      {/* Footer & TikTok Tester Toggle */}
+      {/* Footer & Bouton de test */}
       <footer className="mt-auto pb-6 text-center relative z-10 flex flex-col items-center">
         <p className="text-neutral-500 text-xs tracking-wider uppercase mb-6">
           © {new Date().getFullYear()} Tret Hub. All rights reserved.
         </p>
         
-        {/* TikTok Tester Toggle - For you to test the banner */}
+        {/* Tu pourras supprimer ce bouton quand tu seras sûr que ça marche sur TikTok */}
         <button 
           onClick={() => setIsTikTok(!isTikTok)}
           className="px-4 py-1.5 text-[10px] text-neutral-400 bg-white/5 backdrop-blur-sm border border-neutral-800 rounded-full hover:text-white hover:border-[#FF9000] transition-colors uppercase tracking-widest"
