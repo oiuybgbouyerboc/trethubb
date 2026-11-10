@@ -12,6 +12,8 @@ import {
   Lock
 } from 'lucide-react';
 
+import Carousel from './components/Carousel';
+
 export default function App() {
   const [isTikTok, setIsTikTok] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
@@ -116,7 +118,10 @@ export default function App() {
             Specializing in premium skincare actives to <strong className="text-white">ascend</strong> and get a massive <strong className="text-white">glow-up</strong> with Tretinoin, Azelaic Acid, and many other products.<br/>
           </p>
         </div>
-
+        
+{/* --- LE CARROUSEL EST AJOUTÉ ICI --- */}
+        <Carousel />
+        
         {/* Menu explicatif */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF9000] rounded-full mix-blend-screen filter blur-[80px] opacity-20 pointer-events-none"></div>
