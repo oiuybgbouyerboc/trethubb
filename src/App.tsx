@@ -113,8 +113,7 @@ export default function App() {
         {/* Description mise à jour avec Ascend et Glow Up */}
         <div className="mb-8 text-center px-4">
           <p className="text-sm text-neutral-400 font-light leading-relaxed">
-            Specializing in premium skincare actives to <strong className="text-white">ascend</strong> and get a massive <strong className="text-white">glow-up</strong>.<br/>
-            Tretinoin, Azelaic Acid, and Tazarotene.
+            Specializing in premium skincare actives to <strong className="text-white">ascend</strong> and get a massive <strong className="text-white">glow-up</strong> with Tretinoin, Azelaic Acid, and many other products.<br/>
           </p>
         </div>
 
