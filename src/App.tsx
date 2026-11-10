@@ -2,27 +2,13 @@ import React, { useState, useEffect } from 'react';
 
 export default function App() {
   const [isTikTok, setIsTikTok] = useState(false);
-  const [currentBg, setCurrentBg] = useState(0);
-
-  // Liste de tes images placées dans le dossier /public
-  const bgImages = [
-    '/bg1.jpg',
-    '/bg2.jpg',
-    '/bg3.jpg'
-  ];
 
   useEffect(() => {
-    // 1. DÉTECTION DU NAVIGATEUR TIKTOK
+    // DÉTECTION TIKTOK
     const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
     if (ua.toLowerCase().indexOf('tiktok') > -1) {
       setIsTikTok(true);
     }
-
-    // 2. SLIDER D'IMAGES DE FOND (Change toutes les 4 secondes)
-    const interval = setInterval(() => {
-      setCurrentBg((prev) => (prev + 1) % bgImages.length);
-    }, 4000);
-    return () => clearInterval(interval);
   }, []);
 
   // ÉCRAN DE BLOCAGE TIKTOK
@@ -39,57 +25,93 @@ export default function App() {
     );
   }
 
-  // INTERFACE PRINCIPALE DU SITE
+  // DESIGN ORIGINAL RESTAURÉ
   return (
-    <div className="relative min-h-screen text-white flex flex-col items-center py-12 px-4 overflow-hidden">
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center py-10 px-5 font-sans">
       
-      {/* Fond d'écran qui défile avec un filtre sombre pour que le texte reste lisible */}
-      <div
-        className="fixed inset-0 z-[-1] transition-all duration-1000 ease-in-out bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${bgImages[currentBg]})`,
-          filter: 'brightness(0.25)' // Assombrit l'image
-        }}
-      />
-
-      {/* En-tête / Logo */}
-      <div className="mb-10 text-center mt-8">
-        <h1 className="text-5xl font-extrabold bg-black px-5 py-2 rounded-xl inline-block border-2 border-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]">
-          Tret <span className="text-orange-500">Hub</span>
+      {/* Header */}
+      <div className="flex flex-col items-center mb-8">
+        <h1 className="text-5xl font-bold flex items-center gap-2 mb-2">
+          Tret <span className="bg-[#FF8C00] text-black px-3 py-1 rounded-lg">Hub</span>
         </h1>
-        <p className="mt-4 text-sm tracking-widest uppercase text-gray-400 font-semibold">The Gold Standard in Skincare</p>
+        <p className="text-gray-400 text-xs tracking-[0.2em] font-semibold uppercase">The Gold Standard in Skincare</p>
       </div>
 
-      {/* Nouveau Copywriting "Glow Up / Ascend" */}
-      <div className="max-w-md text-center mb-10 px-4 bg-black/40 p-6 rounded-2xl backdrop-blur-sm border border-zinc-800">
-        <p className="text-xl font-medium mb-3">
-          The ultimate cheat code to <span className="font-bold text-orange-400">ascend</span>.
-        </p>
-        <p className="text-gray-300 text-sm leading-relaxed">
-          Specializing in authentic <strong>Tretinoin</strong> and <strong>Azelaic Acid</strong> for a massive glow-up and flawless glass skin.
+      {/* 3 Features Cards */}
+      <div className="grid grid-cols-3 gap-3 w-full max-w-md mb-8">
+        <div className="bg-[#1A1A1A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center text-center">
+          <span className="text-[#FF8C00] text-2xl mb-2">🛡️</span>
+          <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">100% Authentic<br/>Actives</span>
+        </div>
+        <div className="bg-[#1A1A1A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center text-center">
+          <span className="text-[#FF8C00] text-2xl mb-2">🔒</span>
+          <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Secure Pay<br/>Via Vinted</span>
+        </div>
+        <div className="bg-[#1A1A1A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center text-center">
+          <span className="text-[#FF8C00] text-2xl mb-2">🚚</span>
+          <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Fast Ship<br/>From France</span>
+        </div>
+      </div>
+
+      {/* Description Safe SEO */}
+      <div className="text-center max-w-sm mb-10">
+        <p className="text-gray-400 text-sm">
+          Specializing in premium skincare actives to <span className="text-white font-bold">ascend</span> and get a massive <span className="text-white font-bold">glow-up</span>.<br/>
+          <span className="text-white font-medium mt-1 inline-block">Tretinoin, Azelaic Acid, and Tazarotene.</span>
         </p>
       </div>
 
-      {/* Boutons d'action avec tes liens exacts */}
-      <div className="w-full max-w-sm space-y-4 flex flex-col">
+      {/* How to Order Box */}
+      <div className="bg-[#1A1A1A] border border-zinc-800 rounded-2xl w-full max-w-md p-6 mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-[#FF8C00] text-xl">📦</span>
+          <h2 className="text-xl font-bold text-white">How to Order Safely</h2>
+        </div>
+
+        <div className="relative border-l border-zinc-700 ml-4 pl-8 space-y-8">
+          
+          {/* Step 1 */}
+          <div className="relative">
+            <div className="absolute -left-[45px] top-0 bg-[#FF8C00] text-black font-bold w-7 h-7 rounded-full flex items-center justify-center text-sm ring-4 ring-[#1A1A1A]">1</div>
+            <h3 className="text-white font-bold mb-1">Join the Telegram Channel</h3>
+            <p className="text-gray-400 text-sm">Browse our full menu and prices (Tretinoin, Azelaic, etc).</p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="relative">
+            <div className="absolute -left-[45px] top-0 bg-[#FF8C00] text-black font-bold w-7 h-7 rounded-full flex items-center justify-center text-sm ring-4 ring-[#1A1A1A]">2</div>
+            <h3 className="text-white font-bold mb-1">Message Us Your Order</h3>
+            <p className="text-gray-400 text-sm">Tell us exactly what you need. We calculate the total.</p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="relative">
+            <div className="absolute -left-[45px] top-0 bg-[#FF8C00] text-black font-bold w-7 h-7 rounded-full flex items-center justify-center text-sm ring-4 ring-[#1A1A1A]">3</div>
+            <h3 className="text-white font-bold mb-1">Secure Stealth Checkout</h3>
+            <p className="text-gray-400 text-sm">We send you a custom Vinted link (like a t-shirt or book). You buy it, but we ship your skincare order 100% securely.</p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="w-full max-w-md space-y-4 flex flex-col pb-10">
         
-        {/* Lien principal Telegram */}
         <a
           href="https://t.me/TretHub"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-bold py-5 rounded-xl text-center transition-all flex items-center justify-center space-x-2 shadow-lg transform hover:scale-105"
+          className="w-full bg-[#FF8C00] hover:bg-orange-600 text-black font-bold py-4 rounded-xl text-center text-lg transition-colors flex items-center justify-center gap-2"
         >
-          <span className="text-lg">✈️ Access Telegram (Buy Here)</span>
+          <span>✈️</span> Access Telegram (Buy Here)
         </a>
 
-        {/* Liens secondaires (Reviews & PDF) */}
-        <div className="grid grid-cols-2 gap-4 pt-4">
+        <div className="grid grid-cols-2 gap-4">
           <a
             href="https://t.me/TretHubReviews"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-zinc-900/80 backdrop-blur-md hover:bg-zinc-800 border border-zinc-700 text-gray-200 font-semibold py-4 px-2 rounded-xl text-center text-sm transition-all shadow-md"
+            className="bg-[#1A1A1A] border border-zinc-800 hover:bg-zinc-800 text-gray-300 font-semibold py-3 px-2 rounded-xl text-center text-sm transition-colors"
           >
             ⭐ Client Reviews
           </a>
@@ -97,7 +119,7 @@ export default function App() {
             href="https://drive.google.com/file/d/1D3twtdEgRI7sNdcnWexUd9nEspUw3ODj/view"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-zinc-900/80 backdrop-blur-md hover:bg-zinc-800 border border-zinc-700 text-gray-200 font-semibold py-4 px-2 rounded-xl text-center text-sm transition-all shadow-md"
+            className="bg-[#1A1A1A] border border-zinc-800 hover:bg-zinc-800 text-gray-300 font-semibold py-3 px-2 rounded-xl text-center text-sm transition-colors"
           >
             📄 Free Usage Guide
           </a>
