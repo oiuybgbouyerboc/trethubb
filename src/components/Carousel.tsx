@@ -5,7 +5,7 @@ const images = [
   '/bg1.jpg',
   '/bg2.jpg',
   '/bg3.jpg',
-  '/image_58cfc2.jpg'
+  '/bg4.jpg'
 ];
 
 export default function Carousel() {
