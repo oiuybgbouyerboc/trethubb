@@ -120,7 +120,7 @@ export default function App() {
         </div>
         
 {/* --- LE CARROUSEL EST AJOUTÉ ICI --- */}
-        <Carousel />
+        {/* <Carousel /> */}
         
         {/* Menu explicatif */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8 shadow-2xl relative overflow-hidden">
