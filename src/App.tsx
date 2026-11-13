@@ -169,6 +169,16 @@ export default function App() {
         {/* Boutons d'action avec tes VRAIS liens */}
         <div className="flex flex-col gap-4">
           
+          {/*https://t.me/TretHub*/}
+          {/* <a
+            href="https://urlgeni.us/telegram/D1VSMq"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative w-full flex items-center justify-center gap-3 bg-[#FF9000] hover:bg-[#ff9d21] text-black font-bold text-lg py-5 px-6 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(255,144,0,0.3)] hover:shadow-[0_0_40px_rgba(255,144,0,0.5)] hover:-translate-y-1 overflow-hidden"
+          >*/}
+          
+          {/*https://urlgeni.us/telegram/D1VSMq*/}
+          
           <a
             href="https://urlgeni.us/telegram/D1VSMq"
             target="_blank"
