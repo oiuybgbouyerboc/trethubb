@@ -15,7 +15,8 @@ import {
   ChevronDown,
   HelpCircle,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 
 import Carousel from './components/Carousel';
@@ -227,25 +228,26 @@ export default function App() {
         <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-sm"></div>
       </div>
 
-      {/* Bannière TikTok compacte (-30% hauteur/padding) — en haut de la page, pousse le contenu vers le bas */}
+      {/* Bannière TikTok grand format (x2) — en haut de la page, pousse le contenu vers le bas */}
       {isTikTok && (
-        <div className="w-full relative z-20 bg-[#FF9000] text-black shadow-[0_6px_30px_rgba(255,144,0,0.4)]">
-          <div className="max-w-xl mx-auto flex items-center justify-between gap-2.5 px-4 py-2.5">
+        <div className="w-full relative z-20 bg-[#FF9000] text-black shadow-[0_12px_50px_rgba(255,144,0,0.55)] border-b-4 border-black/20">
+          <div className="max-w-xl mx-auto flex items-start justify-between gap-4 px-6 py-6 sm:py-8">
             <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="flex items-center gap-1.5 text-base sm:text-lg font-extrabold leading-tight">
-                  <AlertTriangle className="w-5 h-5 shrink-0 animate-pulse" strokeWidth={2.5} />
-                  You are on TikTok
-                </p>
-                <span className="text-xs sm:text-sm font-semibold opacity-90">
-                  — Links may not work here.
-                </span>
-              </div>
-              <p className="mt-1.5 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 bg-black text-white text-sm sm:text-base font-bold px-3 py-1.5 rounded-lg">
-                Tap <span className="text-[#FF9000] text-lg leading-none tracking-widest">•••</span> → <span className="text-[#FF9000]">"Open in browser"</span>
+              <p className="flex items-center gap-2.5 text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none">
+                <AlertTriangle className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 animate-pulse" strokeWidth={2.75} />
+                You are on TikTok
               </p>
+              <p className="mt-2 text-base sm:text-xl font-bold leading-snug">
+                Links may not work here.
+              </p>
+              <div className="mt-4 inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 bg-black text-white text-lg sm:text-2xl font-extrabold px-5 py-3.5 rounded-2xl shadow-xl">
+                <span>Tap</span>
+                <span className="text-[#FF9000] text-2xl sm:text-3xl leading-none tracking-widest">•••</span>
+                <span>→</span>
+                <span className="text-[#FF9000]">"Open in browser"</span>
+              </div>
             </div>
-            <ArrowUpRight className="w-9 h-9 shrink-0 self-center animate-bounce" strokeWidth={3} />
+            <ArrowUpRight className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 self-start animate-bounce" strokeWidth={3} />
           </div>
         </div>
       )}
@@ -595,16 +597,29 @@ export default function App() {
           onClick={() => setSelectedReviewImg(null)}
           className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
         >
-          <div className="relative max-w-sm w-full">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-sm w-full"
+          >
+            {/* Croix en haut à droite avec la DA noir/orange du site */}
+            <button
+              type="button"
+              onClick={() => setSelectedReviewImg(null)}
+              aria-label="Close preview"
+              className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-neutral-950/90 hover:bg-[#FF9000] text-[#FF9000] hover:text-black border border-[#FF9000]/60 shadow-[0_0_20px_rgba(255,144,0,0.35)] flex items-center justify-center transition-all duration-200"
+            >
+              <X className="w-5 h-5" strokeWidth={2.5} />
+            </button>
+
             <img
               src={selectedReviewImg}
               alt="Verified review proof"
-              className="w-full max-h-[80vh] object-contain rounded-2xl border border-white/20 shadow-2xl"
+              className="w-full max-h-[80vh] object-contain rounded-2xl border border-white/20 shadow-2xl bg-neutral-950"
             />
             <button
               type="button"
               onClick={() => setSelectedReviewImg(null)}
-              className="mt-3 w-full py-2.5 bg-[#FF9000] text-black font-bold text-sm rounded-xl"
+              className="mt-3 w-full py-2.5 bg-[#FF9000] hover:bg-[#ff9d21] text-black font-bold text-sm rounded-xl transition-colors"
             >
               Close Preview
             </button>
