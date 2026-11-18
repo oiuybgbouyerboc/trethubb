@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import Carousel from './components/Carousel';
+import { isAdminIgnored, setAdminIgnore, syncAdminIgnoreFromUrl } from './utils/analyticsAdmin';
 
 export default function App() {
   const [isTikTok, setIsTikTok] = useState(false);
@@ -27,6 +28,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(3);
   const [selectedReviewImg, setSelectedReviewImg] = useState<string | null>(null);
+  const [adminIgnored, setAdminIgnored] = useState(() => isAdminIgnored());
+  const [adminToast, setAdminToast] = useState<'paused' | 'resumed' | null>(() => syncAdminIgnoreFromUrl());
   const reviewsCarouselRef = useRef<HTMLDivElement | null>(null);
   const isReviewsPausedRef = useRef(false);
   const resumeTimeoutRef = useRef<number | null>(null);
@@ -115,6 +118,7 @@ export default function App() {
 
   // Envoie une étape du tunnel dans Vercel Analytics (apparaît dans Top Pages / requestPath)
   const trackFunnelStep = (stepPath: string, restorePath = '/') => {
+    if (isAdminIgnored()) return;
     try {
       window.history.pushState(null, '', stepPath);
       window.setTimeout(() => {
@@ -221,6 +225,12 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!adminToast) return;
+    const toastTimer = window.setTimeout(() => setAdminToast(null), 5000);
+    return () => window.clearTimeout(toastTimer);
+  }, [adminToast]);
 
   const pauseReviewsAutoScroll = () => {
     if (resumeTimeoutRef.current) {
@@ -672,9 +682,34 @@ export default function App() {
 
       {/* Footer & Bouton de test */}
       <footer className="mt-auto pb-6 text-center relative z-10 flex flex-col items-center">
-        <p className="text-neutral-500 text-xs tracking-wider uppercase mb-6">
+        <p className="text-neutral-500 text-xs tracking-wider uppercase mb-3">
           © {new Date().getFullYear()} Tret Hub. All rights reserved.
         </p>
+
+        {adminIgnored && (
+          <div className="mb-4 inline-flex items-center gap-2 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+            <span>Admin mode: visits ignored on this browser</span>
+            <button
+              type="button"
+              onClick={() => {
+                setAdminIgnore(false);
+                setAdminIgnored(false);
+                setAdminToast('resumed');
+              }}
+              className="underline text-neutral-300 hover:text-white"
+            >
+              Re-enable
+            </button>
+          </div>
+        )}
+
+        {adminToast && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-neutral-900/95 border border-emerald-500/50 text-xs font-semibold text-emerald-300 shadow-2xl backdrop-blur-md whitespace-nowrap">
+            {adminToast === 'paused'
+              ? '✓ Admin mode enabled — analytics disabled on this browser'
+              : 'Analytics re-enabled on this browser'}
+          </div>
+        )}
         
         {/* Bouton de test TEMPORAIRE — flottant en bas à droite, visible uniquement en local (npm run dev), jamais sur le site en ligne */}
         {import.meta.env.DEV && (
