@@ -458,7 +458,7 @@ export default function App() {
                         <Star key={i} className="w-3.5 h-3.5 fill-[#FF9000] text-[#FF9000]" />
                       ))}
                     </div>
-                    <span className="text-[10px] font-semibold text-[#FF9000] bg-[#FF9000]/10 px-2 py-0.5 rounded-full truncate">
+                    <span className="text-[10px] font-semibold text-[#FF9000] bg-[#FF9000]/10 px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                       {rev.tag}
                     </span>
                   </div>
