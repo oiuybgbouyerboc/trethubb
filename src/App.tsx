@@ -33,6 +33,8 @@ export default function App() {
   const reviewsCarouselRef = useRef<HTMLDivElement | null>(null);
   const isReviewsPausedRef = useRef(false);
   const resumeTimeoutRef = useRef<number | null>(null);
+  const footerTapCountRef = useRef(0);
+  const footerTapResetTimerRef = useRef<number | null>(null);
 
   // Produits et tarifs du bloc Live Menu & Prices
   const menuItems = [
@@ -223,6 +225,9 @@ export default function App() {
       if (resumeTimeoutRef.current) {
         window.clearTimeout(resumeTimeoutRef.current);
       }
+      if (footerTapResetTimerRef.current) {
+        window.clearTimeout(footerTapResetTimerRef.current);
+      }
     };
   }, []);
 
@@ -256,6 +261,29 @@ export default function App() {
     if (halfWidth > 0 && el.scrollLeft >= halfWidth) {
       el.scrollLeft -= halfWidth;
     }
+  };
+
+  // Raccourci caché admin : 15 clics/taps sur le copyright du footer pour basculer le tracking
+  const handleSecretFooterTap = () => {
+    if (footerTapResetTimerRef.current) {
+      window.clearTimeout(footerTapResetTimerRef.current);
+    }
+    footerTapCountRef.current += 1;
+
+    if (footerTapCountRef.current >= 15) {
+      footerTapCountRef.current = 0;
+      footerTapResetTimerRef.current = null;
+      const next = !adminIgnored;
+      setAdminIgnore(next);
+      setAdminIgnored(next);
+      setAdminToast(next ? 'paused' : 'resumed');
+      return;
+    }
+
+    footerTapResetTimerRef.current = window.setTimeout(() => {
+      footerTapCountRef.current = 0;
+      footerTapResetTimerRef.current = null;
+    }, 2000);
   };
 
   return (
@@ -682,7 +710,10 @@ export default function App() {
 
       {/* Footer & Bouton de test */}
       <footer className="mt-auto pb-6 text-center relative z-10 flex flex-col items-center">
-        <p className="text-neutral-500 text-xs tracking-wider uppercase mb-3">
+        <p
+          onClick={handleSecretFooterTap}
+          className="text-neutral-500 text-xs tracking-wider uppercase mb-3 py-1 px-2 select-none touch-manipulation"
+        >
           © {new Date().getFullYear()} Tret Hub. All rights reserved.
         </p>
 
