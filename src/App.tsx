@@ -113,8 +113,24 @@ export default function App() {
     },
   ];
 
+  // Envoie une étape du tunnel dans Vercel Analytics (apparaît dans Top Pages / requestPath)
+  const trackFunnelStep = (stepPath: string) => {
+    try {
+      window.history.pushState(null, '', stepPath);
+      window.setTimeout(() => {
+        window.history.replaceState(null, '', '/');
+      }, 100);
+    } catch {
+      // Ignore si bloqué par le navigateur
+    }
+  };
+
+  // Lien Telegram traqué dédié au site (compte exactement les abonnés qui rejoignent depuis trethub.shop)
+  const telegramChannelUrl = 'https://t.me/+5ee4_fBg_N1hODk0';
+
   // Copie "@TretHub" dans le presse-papiers (avec solution de secours pour les navigateurs intégrés comme TikTok)
   const copyTelegramHandle = async () => {
+    trackFunnelStep('/funnel/4-copy-handle');
     const handle = '@TretHub';
     try {
       await navigator.clipboard.writeText(handle);
@@ -148,6 +164,11 @@ export default function App() {
       setIsTikTok(true);
     }
 
+    // Enregistre dans Vercel Analytics si la session est sur TikTok Browser ou Navigateur Externe
+    const funnelTimer = window.setTimeout(() => {
+      trackFunnelStep(isTikTokBrowser ? '/funnel/1-tiktok-browser' : '/funnel/2-external-browser');
+    }, 600);
+
     // Carrousel d'images de fond
     const interval = setInterval(() => {
       setCurrentBgIndex((prevIndex) => (prevIndex + 1) % bgImages.length);
@@ -177,6 +198,7 @@ export default function App() {
     animationFrameId = requestAnimationFrame(stepReviewsScroll);
 
     return () => {
+      window.clearTimeout(funnelTimer);
       clearInterval(interval);
       cancelAnimationFrame(animationFrameId);
       if (resumeTimeoutRef.current) {
@@ -301,7 +323,8 @@ export default function App() {
 
         {/* CTA principal : Telegram */}
         <a
-          href="https://t.me/TretHub"
+          href={telegramChannelUrl}
+          onClick={() => trackFunnelStep('/funnel/3-click-telegram-top')}
           target="_blank"
           rel="noopener noreferrer"
           className="group relative w-full flex items-center justify-center gap-3 bg-[#FF9000] hover:bg-[#ff9d21] text-black font-bold text-lg py-5 px-6 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(255,144,0,0.3)] hover:shadow-[0_0_40px_rgba(255,144,0,0.5)] hover:-translate-y-1 overflow-hidden"
@@ -522,7 +545,8 @@ export default function App() {
         <div className="flex flex-col gap-3">
           {/* Second bouton principal d'achat Telegram */}
           <a
-            href="https://t.me/TretHub"
+            href={telegramChannelUrl}
+            onClick={() => trackFunnelStep('/funnel/3-click-telegram-bottom')}
             target="_blank"
             rel="noopener noreferrer"
             className="group relative w-full flex items-center justify-center gap-3 bg-[#FF9000] hover:bg-[#ff9d21] text-black font-bold text-lg py-5 px-6 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(255,144,0,0.3)] hover:shadow-[0_0_40px_rgba(255,144,0,0.5)] hover:-translate-y-1 overflow-hidden"
@@ -557,6 +581,7 @@ export default function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a
               href="https://t.me/TretHubReviews"
+              onClick={() => trackFunnelStep('/funnel/5-click-reviews')}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center sm:justify-start gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-[#FF9000]/50 text-white font-medium py-4 px-5 rounded-2xl transition-all duration-300"
@@ -567,6 +592,7 @@ export default function App() {
             
             <a
               href="https://drive.google.com/file/d/1D3twtdEgRI7sNdcnWexUd9nEspUw3ODj/view"
+              onClick={() => trackFunnelStep('/funnel/6-click-pdf-guide')}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center sm:justify-start gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 hover:border-white/20 text-white font-medium py-4 px-5 rounded-2xl transition-all duration-300"
@@ -579,6 +605,7 @@ export default function App() {
           {/* Bouton TikTok déplacé tout en bas pour éviter la fuite de trafic dans le Hero */}
           <a
             href="https://www.tiktok.com/@tret.hub"
+            onClick={() => trackFunnelStep('/funnel/7-click-tiktok')}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center gap-3 bg-black/40 hover:bg-[#FF9000]/10 backdrop-blur-md border border-white/10 hover:border-[#FF9000] text-neutral-300 hover:text-white font-medium text-sm py-3.5 px-6 rounded-2xl transition-all duration-300"
