@@ -384,15 +384,15 @@ export default function App() {
             {menuItems.map((item, idx) => {
               const isInStock = item.status.includes('IN STOCK');
               return (
-                <div key={idx} className="py-3 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="text-white font-semibold text-sm">{item.name}</span>
-                    <span className="text-neutral-400 text-xs ml-1.5">({item.strengths})</span>
+                <div key={idx} className="py-3.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white font-semibold text-sm leading-snug">{item.name}</div>
+                    <div className="text-neutral-400 text-xs mt-0.5 leading-snug">{item.strengths}</div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[#FF9000] font-bold text-sm">{item.price}</span>
+                  <div className="flex flex-col items-end gap-1 shrink-0 sm:flex-row sm:items-center sm:gap-2.5">
+                    <span className="text-[#FF9000] font-bold text-sm whitespace-nowrap">{item.price}</span>
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap ${
                         isInStock
                           ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
                           : 'text-[#FF9000] bg-[#FF9000]/10 border-[#FF9000]/30'
@@ -407,8 +407,9 @@ export default function App() {
           </div>
 
           <div className="mt-3 pt-3 border-t border-white/10 text-center">
-            <p className="text-xs text-neutral-300 font-medium">
-              Bundle discounts available on 3+ tubes • Single shipping fee
+            <p className="text-[11px] sm:text-xs text-neutral-300 font-medium leading-relaxed">
+              Bundle discounts available on 3+ tubes •{' '}
+              <span className="whitespace-nowrap">Single shipping fee</span>
             </p>
           </div>
         </div>
