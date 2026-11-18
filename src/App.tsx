@@ -114,11 +114,11 @@ export default function App() {
   ];
 
   // Envoie une étape du tunnel dans Vercel Analytics (apparaît dans Top Pages / requestPath)
-  const trackFunnelStep = (stepPath: string) => {
+  const trackFunnelStep = (stepPath: string, restorePath = '/') => {
     try {
       window.history.pushState(null, '', stepPath);
       window.setTimeout(() => {
-        window.history.replaceState(null, '', '/');
+        window.history.replaceState(null, '', restorePath);
       }, 100);
     } catch {
       // Ignore si bloqué par le navigateur
@@ -159,14 +159,29 @@ export default function App() {
     // Détection du navigateur interne TikTok
     const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
     const isTikTokBrowser = /TikTok|BytedanceWebview|musical_ly/i.test(ua);
+    const params = new URLSearchParams(window.location.search);
+    const cameFromTikTokBrowser = params.get('tt') === '1';
     
     if (isTikTokBrowser) {
       setIsTikTok(true);
+      // On garde ?tt=1 dans l'URL du navigateur TikTok : quand l'utilisateur tape ••• -> "Open in browser",
+      // Safari/Chrome ouvre exactement cette URL avec ?tt=1, ce qui prouve à 100% la conversion TikTok -> Browser !
+      try {
+        window.history.replaceState(null, '', '/?tt=1');
+      } catch {
+        // Ignore
+      }
     }
 
-    // Enregistre dans Vercel Analytics si la session est sur TikTok Browser ou Navigateur Externe
+    // Enregistre dans Vercel Analytics si la session est sur TikTok Browser, passée de TikTok vers Browser, ou directe
     const funnelTimer = window.setTimeout(() => {
-      trackFunnelStep(isTikTokBrowser ? '/funnel/1-tiktok-browser' : '/funnel/2-external-browser');
+      if (isTikTokBrowser) {
+        trackFunnelStep('/funnel/1-tiktok-browser', '/?tt=1');
+      } else if (cameFromTikTokBrowser) {
+        trackFunnelStep('/funnel/2a-tiktok-to-browser', '/');
+      } else {
+        trackFunnelStep('/funnel/2-external-browser', '/');
+      }
     }, 600);
 
     // Carrousel d'images de fond
