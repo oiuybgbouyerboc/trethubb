@@ -34,6 +34,12 @@ export default function App() {
   // Produits et tarifs du bloc Live Menu & Prices
   const menuItems = [
     {
+      name: 'Tretinoin',
+      strengths: '0.025% / 0.05% / 0.1%',
+      price: '€13.00 to €15.00',
+      status: '0.05% IN STOCK' as const,
+    },
+    {
       name: 'Tazarotene',
       strengths: '0.1%',
       price: '€20.00',
@@ -44,12 +50,6 @@ export default function App() {
       strengths: '20%',
       price: '€16.00',
       status: 'IN STOCK' as const,
-    },
-    {
-      name: 'Tretinoin',
-      strengths: '0.025% / 0.05% / 0.1%',
-      price: '€13.00 to €15.00',
-      status: 'PRE-ORDER' as const,
     },
     {
       name: 'Azelaic Acid',
@@ -344,7 +344,7 @@ export default function App() {
 
           <div className="divide-y divide-white/10">
             {menuItems.map((item, idx) => {
-              const isInStock = item.status === 'IN STOCK';
+              const isInStock = item.status.includes('IN STOCK');
               return (
                 <div key={idx} className="py-3 flex items-center justify-between gap-2">
                   <div className="min-w-0">
