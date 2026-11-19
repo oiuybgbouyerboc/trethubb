@@ -259,10 +259,10 @@ async function handleHelp(chatId: string): Promise<void> {
     `<b>✅ 3. SUIVI DES CLIENTS</b>\n` +
     `• <code>/client Antox</code> — Voir la fiche complète du client\n` +
     `• <code>/pending</code> — Liste de toutes les précos en attente\n` +
-    `• <code>/paid Kyle [pseudo_vinted]</code> — Passe en Payé + déduit stock\n` +
-    `• <code>/ship Kyle</code> — Passe le colis en <b>Expédié</b>\n` +
+    `• <code>/paid Kyle [vin@pseudo]</code> — Passe en <b>Payé</b> + <b>À poster</b> + déduit stock\n` +
+    `• <code>/ship Kyle</code> — Passe le colis en <b>Posté</b>\n` +
     `• <code>/done Kyle</code> — Passe en <b>Reçu</b> + sort le msg Avis 5★\n` +
-    `• <code>/cancel Nom</code> — Passe en <b>Annulé</b> (libère le stock)\n\n` +
+    `• <code>/cancel Nom</code> — Passe en <b>annulé/relancé</b> (garde <i>Pas payé</i> + libère stock)\n\n` +
     `<b>📦 4. STOCK &amp; POOL VINTED</b>\n` +
     `• <code>/stock</code> ou <code>/stock t5</code> — Stock global ou par produit\n` +
     `• <code>/setstock t5 20</code> <i>(ou <code>+10</code> / <code>-1</code>)</i> — Stock physique\n` +
@@ -989,7 +989,11 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
   const query = queryTokens.join(" ");
 
   const orders = await fetchAllOrders();
-  const found = findClientOrder(orders, query, (o) => o.status.toLowerCase() !== "payé" && o.status.toLowerCase() !== "annulé");
+  const found = findClientOrder(
+    orders,
+    query,
+    (o) => o.status.toLowerCase() !== "payé" && !o.status.toLowerCase().includes("annulé")
+  );
   if (!found) {
     await sendTg(chatId, `❌ Aucune commande non payée trouvée pour <code>${escHtml(query)}</code>.`);
     return;
@@ -997,7 +1001,7 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
 
   const writes: Array<{ row: number; col: number; value: string }> = [
     { row: found.rowNum, col: 6, value: "Payé" },
-    { row: found.rowNum, col: 10, value: "À expédier" },
+    { row: found.rowNum, col: 10, value: "À poster" },
   ];
   if (vintedPseudo) writes.push({ row: found.rowNum, col: 8, value: vintedPseudo });
 
@@ -1030,7 +1034,7 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
       `👤 Client : <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum})\n` +
       `📦 Commande : <code>${escHtml(found.order)}</code> (${escHtml(found.priceDisplay)})\n` +
       (vintedPseudo ? `🛍️ Pseudo Vinted : <code>${escHtml(vintedPseudo)}</code>\n` : "") +
-      `📌 Statut : <b>Payé</b> · <b>À expédier</b>` +
+      `📌 Statut : <b>Payé</b> · <b>À poster</b>` +
       (stockChanges.length > 0 ? `\n\n<b>Stock physique mis à jour :</b>\n${stockChanges.join("\n")}` : "")
   );
 }
@@ -1052,11 +1056,11 @@ async function handleShip(chatId: string, text: string): Promise<void> {
     sheet: MAIN_SHEET,
     row: found.rowNum,
     col: 10,
-    value: "Expédié",
+    value: "Posté",
   });
   await sendTg(
     chatId,
-    `🚚 <b>Colis marqué EXPÉDIÉ !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)`
+    `🚚 <b>Colis marqué POSTÉ !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)`
   );
 }
 
@@ -1101,7 +1105,7 @@ async function handleCancel(chatId: string, text: string): Promise<void> {
     return;
   }
   const orders = await fetchAllOrders();
-  const found = findClientOrder(orders, query, (o) => o.status.toLowerCase() !== "annulé");
+  const found = findClientOrder(orders, query, (o) => !o.status.toLowerCase().includes("annulé"));
   if (!found) {
     await sendTg(chatId, `❌ Aucune commande active trouvée pour <code>${escHtml(query)}</code>.`);
     return;
@@ -1110,13 +1114,13 @@ async function handleCancel(chatId: string, text: string): Promise<void> {
     action: "batchCells",
     sheet: MAIN_SHEET,
     writes: [
-      { row: found.rowNum, col: 6, value: "Annulé" },
-      { row: found.rowNum, col: 10, value: "Annulé" },
+      { row: found.rowNum, col: 6, value: "annulé/relancé" },
+      { row: found.rowNum, col: 10, value: "Pas payé" },
     ],
   });
   await sendTg(
     chatId,
-    `❌ <b>Commande annulée !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)\n<i>Ses tubes ont été libérés dans l'onglet Stock ✅</i>`
+    `❌ <b>Commande passée en annulé/relancé !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)\n📌 Statut : <b>annulé/relancé</b> · Colis : <b>Pas payé</b>\n<i>Ses tubes ont été libérés dans l'onglet Stock ✅</i>`
   );
 }
 
