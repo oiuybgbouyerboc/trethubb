@@ -17,6 +17,8 @@ const MAIN_SHEET = "Feuille de commande";
 const POOL_SHEET = "Pool Vinted";
 const STOCK_SHEET = "Stock";
 
+const CONTACT_PREFIX_RE = /^(tt@|tg@|vin@|vinted@|v@|ig@|wa@)/i;
+
 function getEnv(name: string, fallback = ""): string {
   return (process.env[name] || fallback).trim();
 }
@@ -107,6 +109,12 @@ function normalizeSpacingAroundSeparators(input: string): string {
     .join("");
 }
 
+function normalizeContact(token: string): string {
+  const t = token.trim();
+  if (/^(vin@|v@)/i.test(t)) return "vin@" + t.replace(/^(vin@|v@)/i, "");
+  return t;
+}
+
 function extractCoverFromVintedUrl(url: string): string {
   const m = url.match(/\/items\/\d+-([^/?#]+)/i);
   if (!m) return "Fake Cover";
@@ -125,8 +133,60 @@ function todayParis(): string {
   }).format(new Date());
 }
 
+interface OrderRow {
+  rowNum: number;
+  date: string;
+  client: string;
+  order: string;
+  price: number;
+  priceDisplay: string;
+  status: string;
+  contact: string;
+  vintedUser: string;
+  link: string;
+  orderStatus: string;
+}
+
+async function fetchAllOrders(): Promise<OrderRow[]> {
+  const res = await callBridge({ action: "read", sheet: MAIN_SHEET, range: "B8:J500" });
+  const vals: any[][] = res.values || [];
+  const disp: any[][] = res.displayValues || vals;
+  const out: OrderRow[] = [];
+  for (let i = 0; i < vals.length; i++) {
+    const client = String(vals[i]?.[1] ?? "").trim();
+    if (!client) continue;
+    out.push({
+      rowNum: 8 + i,
+      date: String(disp[i]?.[0] ?? "").trim(),
+      client,
+      order: String(vals[i]?.[2] ?? "").trim(),
+      price: parsePrice(vals[i]?.[3]),
+      priceDisplay: String(disp[i]?.[3] ?? "").trim(),
+      status: String(vals[i]?.[4] ?? "").trim(),
+      contact: String(vals[i]?.[5] ?? "").trim(),
+      vintedUser: String(vals[i]?.[6] ?? "").trim(),
+      link: String(vals[i]?.[7] ?? "").trim(),
+      orderStatus: String(vals[i]?.[8] ?? "").trim(),
+    });
+  }
+  return out;
+}
+
+function findClientOrder(orders: OrderRow[], query: string, filterFn?: (o: OrderRow) => boolean): OrderRow | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  for (let i = orders.length - 1; i >= 0; i--) {
+    const o = orders[i];
+    if (filterFn && !filterFn(o)) continue;
+    if (o.client.toLowerCase().includes(q) || o.contact.toLowerCase().includes(q)) {
+      return o;
+    }
+  }
+  return null;
+}
+
 // ============================================================
-// Bridge client to Google Apps Script (fixed 35-line bridge)
+// Bridge client to Google Apps Script (fixed bridge)
 // ============================================================
 async function callBridge(payload: Record<string, unknown>): Promise<any> {
   const url = getEnv("SHEETS_BRIDGE_URL");
@@ -182,27 +242,39 @@ async function sendTg(chatId: string, text: string, parseMode: "HTML" | undefine
 // ============================================================
 async function handleHelp(chatId: string): Promise<void> {
   const msg =
-    `🤖 <b>TRETHUB ORDER &amp; STOCK BOT</b>\n\n` +
-    `<b>📦 STOCK :</b>\n` +
-    `• <code>/stock</code> — Tout le stock en direct\n` +
-    `• <code>/stock t5</code> — Détail d'un produit + liens Libres\n` +
-    `• <code>/setstock t5 20</code> — Fixer le stock physique (ou <code>+10</code> / <code>-1</code>)\n` +
-    `• <code>/restock t2 23</code> — Modifier la colonne Restock à venir\n` +
-    `• <code>/arrive</code> — Transfère tout le Restock reçu dans le Stock Physique\n\n` +
-    `<b>🔗 POOL VINTED :</b>\n` +
-    `• <code>/add moncompte t5 14.50 https://vinted...</code>\n` +
-    `  <i>(Nom de compte libre, zéro <code>|</code> obligatoire, Fake Cover auto !)</i>\n` +
-    `• <code>/pool</code> ou <code>/pool t5</code> — Voir les liens Libres\n\n` +
-    `<b>🛒 COMMANDES &amp; MESSAGES CLIENTS :</b>\n` +
-    `• <code>/order en Kyle Butler t5+a2 27</code> — En stock\n` +
-    `• <code>/pre fr Antox Frt t5 14.50</code> — Précommande (lien caché)\n` +
-    `  <i>Optionnel : rajoute un lien <code>https://...</code> ou <code>tt@pseudo</code> à la fin</i>\n` +
-    `• <code>/lead Nom t2 13</code> — Ajouter un prospect en <b>démarchage</b>\n` +
-    `• <code>/paid Nom</code> — Passe en Payé + déduit le stock physique\n\n` +
-    `<b>⚙️ AUTRES :</b>\n` +
-    `• <code>/stats</code> — Chiffres globaux du Sheet\n` +
-    `• <code>/date Sunday, Nov 29th | dimanche 29/11</code> — Date de restock\n\n` +
-    `<b>📌 CODES :</b> <code>t2</code> (0.025%) · <code>t5</code> (0.05%) · <code>t1</code> (0.1%) · <code>a1</code> (Az 10%) · <code>a2</code> (Az 20%) · <code>ta1</code> (Taz 0.1%) · <code>h4</code> (Hydro 4%)`;
+    `🤖 <b>TRETHUB BOT — GUIDE COMPLET</b>\n` +
+    `<i>(Virgule <code>14,50</code> ou point <code>14.50</code> acceptés · Zéro <code>|</code> requis)</i>\n\n` +
+    `<b>🛒 1. CRÉER UNE COMMANDE / PROSPECT</b>\n` +
+    `• <code>/pre fr Antox Frt t5 14,50 [lien]</code>\n` +
+    `  <i>Précommande (lien caché) + Sheet + Message</i>\n` +
+    `• <code>/order en Kyle Butler t5 a2 27 [lien]</code>\n` +
+    `  <i>En stock (paiement direct) + Sheet + Message</i>\n` +
+    `• <code>/lead Lucas t2 13 vin@lucas92</code>\n` +
+    `  <i>Ajoute un prospect en statut <b>démarchage</b></i>\n\n` +
+    `<b>💬 2. GÉNÉRER UN MESSAGE (SANS DOUBLON SHEET)</b>\n` +
+    `• <code>/msg fr Antox</code> — Regénère le msg précommande en FR\n` +
+    `• <code>/msg order en Kyle</code> — Msg paiement (quand lien ouvert)\n` +
+    `• <code>/msg update en Riccardo</code> — Relance retard + 22/11\n` +
+    `• <code>/msg review en Ghost</code> — Demande d'avis 5★ + photo\n\n` +
+    `<b>✅ 3. SUIVI DES CLIENTS</b>\n` +
+    `• <code>/client Antox</code> — Voir la fiche complète du client\n` +
+    `• <code>/pending</code> — Liste de toutes les précos en attente\n` +
+    `• <code>/paid Kyle [pseudo_vinted]</code> — Passe en Payé + déduit stock\n` +
+    `• <code>/ship Kyle</code> — Passe le colis en <b>Expédié</b>\n` +
+    `• <code>/done Kyle</code> — Passe en <b>Reçu</b> + sort le msg Avis 5★\n` +
+    `• <code>/cancel Nom</code> — Passe en <b>Annulé</b> (libère le stock)\n\n` +
+    `<b>📦 4. STOCK &amp; POOL VINTED</b>\n` +
+    `• <code>/stock</code> ou <code>/stock t5</code> — Stock global ou par produit\n` +
+    `• <code>/setstock t5 20</code> <i>(ou <code>+10</code> / <code>-1</code>)</i> — Stock physique\n` +
+    `• <code>/restock t2 23</code> — Quantité en arrivage\n` +
+    `• <code>/arrive</code> — Transfère le restock reçu dans le Stock Physique\n` +
+    `• <code>/add compte1 t5 14,50 https://vinted...</code> — Ajoute au Pool\n` +
+    `• <code>/pool</code> ou <code>/pool t5</code> — Liens Vinted Libres\n\n` +
+    `<b>📊 5. PILOTAGE</b>\n` +
+    `• <code>/stats</code> — Tous les KPIs en direct\n` +
+    `• <code>/date Sunday, Nov 29th | dimanche 29/11</code> — Date restock\n\n` +
+    `<b>📌 CODES PRODUITS :</b> <code>t2</code> (0.025%) · <code>t5</code> (0.05%) · <code>t1</code> (0.1%) · <code>a1</code> (Az 10%) · <code>a2</code> (Az 20%) · <code>ta1</code> (Taz 0.1%) · <code>h4</code> (Hydro 4%)\n` +
+    `<b>📱 CONTACTS :</b> <code>tg@</code> (défaut) · <code>tt@</code> (TikTok) · <code>vin@</code> (Vinted) · <code>ig@</code> (Insta) · <code>wa@</code> (WhatsApp)`;
   await sendTg(chatId, msg);
 }
 
@@ -216,7 +288,7 @@ async function handleStock(chatId: string, text: string): Promise<void> {
     if (!code) {
       await sendTg(
         chatId,
-        `❌ Produit inconnu : <code>${escHtml(arg)}</code>\nCodes valides : <code>t2</code>, <code>t5</code>, <code>t1</code>, <code>a1</code>, <code>a2</code>, <code>ta1</code>, <code>h4</code>`
+        `❌ Produit inconnu : <code>${escHtml(arg)}</code>\nCodes : <code>t2</code>, <code>t5</code>, <code>t1</code>, <code>a1</code>, <code>a2</code>, <code>ta1</code>, <code>h4</code>`
       );
       return;
     }
@@ -231,13 +303,11 @@ async function handleStock(chatId: string, text: string): Promise<void> {
     const incoming = Number(row[6]) || 0;
     const freeLinksCount = Number(row[7]) || 0;
 
-    // Fetch matching free Vinted links from Pool Vinted (C4:I500)
     const poolRes = await callBridge({ action: "read", sheet: POOL_SHEET, range: "C4:I500" });
     const poolRows: any[][] = poolRes.values || [];
     const matchingLinks = poolRows.filter((r) => {
       if (String(r[5]).trim().toLowerCase() !== "libre") return false;
-      const items = parseProductItems(String(r[1] || ""));
-      return items.some((it) => it.code === code);
+      return parseProductItems(String(r[1] || "")).some((it) => it.code === code);
     });
 
     let msg =
@@ -261,13 +331,12 @@ async function handleStock(chatId: string, text: string): Promise<void> {
     return;
   }
 
-  // Global stock overview
   const lines: string[] = [];
-  let totPhys = 0;
-  let totRes = 0;
-  let totNet = 0;
-  let totInc = 0;
-  let totLinks = 0;
+  let totPhys = 0,
+    totRes = 0,
+    totNet = 0,
+    totInc = 0,
+    totLinks = 0;
 
   for (const r of rows) {
     const code = String(r[0] || "").trim().toLowerCase();
@@ -290,13 +359,13 @@ async function handleStock(chatId: string, text: string): Promise<void> {
     );
   }
 
-  const summary =
+  await sendTg(
+    chatId,
     `📦 <b>ÉTAT DU STOCK TRETHUB</b>\n\n` +
-    lines.join("\n") +
-    `\n\n📊 <b>TOTAL :</b> Phys <b>${totPhys}</b> · Rés <b>${totRes}</b> · Net <b>${totNet}</b> · Restock <b>+${totInc}</b> · Liens Libres <b>${totLinks}</b>\n\n` +
-    `<i>💡 Détail produit : <code>/stock t5</code> · Modifier : <code>/setstock t5 20</code></i>`;
-
-  await sendTg(chatId, summary);
+      lines.join("\n") +
+      `\n\n📊 <b>TOTAL :</b> Phys <b>${totPhys}</b> · Rés <b>${totRes}</b> · Net <b>${totNet}</b> · Restock <b>+${totInc}</b> · Liens Libres <b>${totLinks}</b>\n\n` +
+      `<i>💡 Détail : <code>/stock t5</code> · Modifier : <code>/setstock t5 20</code></i>`
+  );
 }
 
 async function handleSetStock(chatId: string, text: string, colIndex: number, label: string): Promise<void> {
@@ -329,14 +398,7 @@ async function handleSetStock(chatId: string, text: string, colIndex: number, la
     newValue = Math.max(0, num);
   }
 
-  await callBridge({
-    action: "setCell",
-    sheet: STOCK_SHEET,
-    row,
-    col: colIndex,
-    value: newValue,
-  });
-
+  await callBridge({ action: "setCell", sheet: STOCK_SHEET, row, col: colIndex, value: newValue });
   await sendTg(
     chatId,
     `✅ <b>${escHtml(label)} mis à jour !</b>\n📦 ${escHtml(PRODUCT_CATALOG[code].name)} (<code>${code}</code>) → <b>${newValue}</b>`
@@ -379,7 +441,7 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
   if (!body) {
     await sendTg(
       chatId,
-      `❌ Format ultra-rapide (sans <code>|</code>) :\n<code>/add moncompte t5 14.50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5+a2 27 https://www.vinted.fr/items/...</code>`
+      `❌ Format ultra-rapide :\n<code>/add moncompte t5 14,50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5 a2 27 https://www.vinted.fr/items/...</code>`
     );
     return;
   }
@@ -390,29 +452,19 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
     link = "",
     cover = "";
 
-  if (body.includes("|")) {
-    const parts = body.split("|").map((s) => s.trim());
-    account = parts[0] || "";
-    products = parts[1] || "";
-    priceRaw = parts[2] || "";
-    link = parts[3] || "";
-    cover = parts[4] || "";
-  } else if (body.includes("\n")) {
-    const parts = body.split("\n").map((s) => s.trim()).filter(Boolean);
+  if (body.includes("|") || body.includes("\n")) {
+    const parts = body.split(body.includes("|") ? "|" : "\n").map((s) => s.trim()).filter(Boolean);
     account = parts[0] || "";
     products = parts[1] || "";
     priceRaw = parts[2] || "";
     link = parts[3] || "";
     cover = parts[4] || "";
   } else {
-    // Smart space parsing: /add compte 1 t5+a2 27 https://vinted... [optional cover]
     const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
     const linkIdx = tokens.findIndex((t) => /^https?:\/\//i.test(t));
     if (linkIdx !== -1) {
       link = tokens[linkIdx];
-      if (linkIdx + 1 < tokens.length) {
-        cover = tokens.slice(linkIdx + 1).join(" ");
-      }
+      if (linkIdx + 1 < tokens.length) cover = tokens.slice(linkIdx + 1).join(" ");
     }
     const beforeLink = linkIdx !== -1 ? tokens.slice(0, linkIdx) : tokens;
     let priceIdx = -1;
@@ -433,15 +485,14 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
       }
     }
     products = prodTokens.join(" ; ");
-    const accTokens = beforeLink.filter((_, i) => i !== priceIdx && !prodIndices.includes(i));
-    account = accTokens.join(" ").trim();
+    account = beforeLink.filter((_, i) => i !== priceIdx && !prodIndices.includes(i)).join(" ").trim();
   }
 
   const price = parsePrice(priceRaw);
   if (!account || !products || isNaN(price) || !link.startsWith("http")) {
     await sendTg(
       chatId,
-      `❌ Données invalides.\nExemples sans <code>|</code> :\n<code>/add alexis t5 14.50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5+a2 27 https://www.vinted.fr/items/...</code>`
+      `❌ Données invalides.\nExemples :\n<code>/add alexis t5 14,50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5 a2 27 https://www.vinted.fr/items/...</code>`
     );
     return;
   }
@@ -489,12 +540,8 @@ async function handlePool(chatId: string, text: string): Promise<void> {
     const code = resolveProductCode(filterArg);
     const maybePrice = parsePrice(filterArg);
     free = free.filter((r) => {
-      if (code) {
-        return parseProductItems(String(r[1] ?? "")).some((it) => it.code === code);
-      }
-      if (!isNaN(maybePrice)) {
-        return Math.abs(parsePrice(r[2]) - maybePrice) < 0.01;
-      }
+      if (code) return parseProductItems(String(r[1] ?? "")).some((it) => it.code === code);
+      if (!isNaN(maybePrice)) return Math.abs(parsePrice(r[2]) - maybePrice) < 0.01;
       return String(r[0] ?? "").toLowerCase().includes(filterArg) || String(r[1] ?? "").toLowerCase().includes(filterArg);
     });
   }
@@ -523,7 +570,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   if (!body) {
     await sendTg(
       chatId,
-      `❌ Formats ultra-rapides (sans <code>|</code>) :\n<code>/${mode} en Kyle Butler t5+a2 27</code>\n<code>/${mode} fr Antox Frt t5 14.50</code>\n<i>(Optionnel : rajoute <code>https://vinted...</code> ou <code>tt@pseudo</code> à la fin)</i>`
+      `❌ Formats ultra-rapides :\n<code>/${mode} en Kyle Butler t5 a2 27</code>\n<code>/${mode} fr Antox Frt t5 14,50 https://vinted...</code>\n<i>(Contacts possibles : <code>tt@</code>, <code>vin@</code>, <code>ig@</code>, <code>wa@</code>)</i>`
     );
     return;
   }
@@ -538,10 +585,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   if (body.includes("|") || body.includes("\n")) {
     const parts = body.split(body.includes("|") ? "|" : "\n").map((s) => s.trim()).filter(Boolean);
     if (parts.length < 4) {
-      await sendTg(
-        chatId,
-        `❌ Il manque un champ.\nExemple simple :\n<code>/${mode} en Kyle Butler t5+a2 27</code>`
-      );
+      await sendTg(chatId, `❌ Il manque un champ.\nExemple : <code>/${mode} en Kyle Butler t5 a2 27</code>`);
       return;
     }
     lang = parts[0].toUpperCase() === "FR" ? "FR" : "EN";
@@ -551,32 +595,28 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
     for (let i = 4; i < parts.length; i++) {
       const p = parts[i];
       if (p.startsWith("http")) directLink = p;
-      else if (p) contactWay = p;
+      else if (p) contactWay = normalizeContact(p);
     }
   } else {
-    // Smart space parsing: /order en Kyle Butler t5+a2 27 [https://...] [tt@...]
     const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
     let startIdx = 0;
     if (tokens[0] && /^(en|fr)$/i.test(tokens[0])) {
       lang = tokens[0].toUpperCase() === "FR" ? "FR" : "EN";
       startIdx = 1;
     }
-
     const work = tokens.slice(startIdx);
     const used = new Set<number>();
 
-    // Extract link & contact
     work.forEach((t, i) => {
       if (/^https?:\/\//i.test(t)) {
         directLink = t;
         used.add(i);
-      } else if (/^(tt@|tg@|vinted@|v@|ig@|wa@)/i.test(t)) {
-        contactWay = t;
+      } else if (CONTACT_PREFIX_RE.test(t)) {
+        contactWay = normalizeContact(t);
         used.add(i);
       }
     });
 
-    // Extract product codes
     const prodList: string[] = [];
     work.forEach((t, i) => {
       if (used.has(i)) return;
@@ -587,7 +627,6 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
     });
     rawProducts = prodList.join(" ; ");
 
-    // Extract price (last numeric token < 500 not already used)
     for (let i = work.length - 1; i >= 0; i--) {
       if (used.has(i)) continue;
       if (isPriceToken(work[i])) {
@@ -597,7 +636,6 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
       }
     }
 
-    // Everything remaining is the client name (supports multi-word names + numbers like "Goy 1234")
     clientName = work.filter((_, i) => !used.has(i)).join(" ").trim();
   }
 
@@ -606,7 +644,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   if (!clientName || !rawProducts || isNaN(price)) {
     await sendTg(
       chatId,
-      `❌ Vérifie la commande.\nExemples ultra-simples :\n<code>/${mode} en Kyle Butler t5+a2 27</code>\n<code>/${mode} fr Antox t5 14.50</code>`
+      `❌ Vérifie la commande.\nExemples :\n<code>/${mode} en Kyle Butler t5 a2 27</code>\n<code>/${mode} fr Antox t5 14,50 https://vinted...</code>`
     );
     return;
   }
@@ -640,7 +678,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
         chatId,
         `❌ Aucun lien <b>Libre</b> à <b>${formatEuroFr(price)}</b> dans <code>Pool Vinted</code>.\n\n` +
           `👉 Ajoute-en un avec <code>/add</code> ou colle ton lien à la fin :\n` +
-          `<code>/${mode} ${lang} | ${escHtml(clientName)} | ${escHtml(rawProducts)} | ${price} | https://vinted...</code>`
+          `<code>/${mode} ${lang.toLowerCase()} ${escHtml(clientName)} ${escHtml(rawProducts)} ${price} https://vinted...</code>`
       );
       return;
     }
@@ -659,7 +697,6 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
     });
   }
 
-  // Find first empty Client cell (Col C) starting at row 8 in Feuille 1
   const mainRead = await callBridge({ action: "read", sheet: MAIN_SHEET, range: "C8:C500" });
   const colC: any[][] = mainRead.values || [];
   let mainRow = 8 + colC.length;
@@ -685,7 +722,6 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
     ],
   });
 
-  // Read restock dates from Script Properties
   const props = await callBridge({ action: "getProps", keys: ["RESTOCK_EN", "RESTOCK_FR"] });
   const restockEn = props.values?.RESTOCK_EN || "Sunday, Nov 22nd";
   const restockFr = props.values?.RESTOCK_FR || "dimanche 22/11";
@@ -696,7 +732,8 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
     chatId,
     `✅ <b>Commande enregistrée !</b>\n` +
       `📄 ${MAIN_SHEET} : Ligne <b>${mainRow}</b> (${escHtml(clientName)} · <code>${escHtml(rawProducts)}</code> · <b>${formatEuroFr(price)}</b>)\n` +
-      `🔗 Source : ${escHtml(poolInfo)}\n\n` +
+      `🔗 Source : ${escHtml(poolInfo)}\n` +
+      `<i>💡 Mauvaise langue ? Tape <code>/msg ${lang === "EN" ? "fr" : "en"} ${escHtml(clientName.split(" ")[0])}</code></i>\n\n` +
       `👇 <b>Copie-colle le message ci-dessous au client :</b>`
   );
 
@@ -704,12 +741,89 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   await sendTg(chatId, clientMsg, undefined);
 }
 
+async function handleMsg(chatId: string, text: string): Promise<void> {
+  const body = text.replace(/^\/msg\s*/i, "").trim();
+  if (!body) {
+    await sendTg(
+      chatId,
+      `💬 <b>Générer un message sans toucher au Sheet :</b>\n\n` +
+        `• <code>/msg fr Antox</code> — Précommande FR\n` +
+        `• <code>/msg en García</code> — Précommande EN\n` +
+        `• <code>/msg order en Kyle</code> — Paiement immédiat (lien débloqué)\n` +
+        `• <code>/msg update en Riccardo</code> — Relance retard + restock 22/11\n` +
+        `• <code>/msg review fr Antox</code> — Demande d'avis 5★ + photo`
+    );
+    return;
+  }
+
+  const tokens = body.split(/\s+/).filter(Boolean);
+  let msgType: "pre" | "order" | "update" | "review" = "pre";
+  let lang: "EN" | "FR" = "EN";
+  const nameTokens: string[] = [];
+
+  for (const t of tokens) {
+    const low = t.toLowerCase();
+    if (nameTokens.length === 0 && (low === "pre" || low === "order" || low === "update" || low === "review")) {
+      msgType = low;
+    } else if (nameTokens.length === 0 && (low === "fr" || low === "en")) {
+      lang = low === "fr" ? "FR" : "EN";
+    } else {
+      nameTokens.push(t);
+    }
+  }
+
+  // Review message doesn't even require finding a client
+  if (msgType === "review" && nameTokens.length === 0) {
+    await sendTg(chatId, buildReviewMessage(lang), undefined);
+    return;
+  }
+
+  const query = nameTokens.join(" ").trim();
+  if (!query) {
+    await sendTg(chatId, `❌ Précise le nom du client.\nEx : <code>/msg fr Antox</code> ou <code>/msg update en Riccardo</code>`);
+    return;
+  }
+
+  const orders = await fetchAllOrders();
+  const found = findClientOrder(orders, query);
+  if (!found) {
+    await sendTg(chatId, `❌ Aucun client trouvé pour <code>${escHtml(query)}</code> dans ${MAIN_SHEET}.`);
+    return;
+  }
+
+  if (msgType === "review") {
+    await sendTg(chatId, `💬 <b>Message Avis 5★ (${lang}) pour ${escHtml(found.client)} :</b>`);
+    await sendTg(chatId, buildReviewMessage(lang), undefined);
+    return;
+  }
+
+  const props = await callBridge({ action: "getProps", keys: ["RESTOCK_EN", "RESTOCK_FR"] });
+  const restockEn = props.values?.RESTOCK_EN || "Sunday, Nov 22nd";
+  const restockFr = props.values?.RESTOCK_FR || "dimanche 22/11";
+
+  const readableProducts = formatProductsReadable(found.order);
+  const priceVal = isNaN(found.price) ? 0 : found.price;
+  const linkVal = found.link || "[LIEN_VINTED]";
+
+  await sendTg(
+    chatId,
+    `💬 <b>Message <code>${msgType.toUpperCase()}</code> (${lang}) pour ${escHtml(found.client)}</b> (Ligne ${found.rowNum} · ${escHtml(found.order)} · ${formatEuroFr(priceVal)}) :`
+  );
+
+  const outMsg =
+    msgType === "update"
+      ? buildUpdateMessage(lang, readableProducts, priceVal, linkVal, restockEn, restockFr)
+      : buildClientMessage(msgType, lang, readableProducts, priceVal, linkVal, restockEn, restockFr);
+
+  await sendTg(chatId, outMsg, undefined);
+}
+
 async function handleLead(chatId: string, text: string): Promise<void> {
   const body = text.replace(/^\/(lead|demarchage)\s*/i, "").trim();
   if (!body) {
     await sendTg(
       chatId,
-      `❌ Format :\n<code>/lead Nom Client t2 13</code>\n<i>(Optionnel : <code>tt@pseudo</code> ou <code>https://vinted...</code>)</i>`
+      `❌ Format :\n<code>/lead Lucas t2 13 vin@lucas92</code>\n<i>(Contacts : <code>tg@</code>, <code>tt@</code>, <code>vin@</code>, <code>ig@</code>, <code>wa@</code> · Lien optionnel)</i>`
     );
     return;
   }
@@ -727,7 +841,7 @@ async function handleLead(chatId: string, text: string): Promise<void> {
     price = parsePrice(parts[2] ?? "");
     for (let i = 3; i < parts.length; i++) {
       if (parts[i].startsWith("http")) directLink = parts[i];
-      else if (parts[i]) contactWay = parts[i];
+      else if (parts[i]) contactWay = normalizeContact(parts[i]);
     }
   } else {
     const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
@@ -736,8 +850,8 @@ async function handleLead(chatId: string, text: string): Promise<void> {
       if (/^https?:\/\//i.test(t)) {
         directLink = t;
         used.add(i);
-      } else if (/^(tt@|tg@|vinted@|v@|ig@|wa@)/i.test(t)) {
-        contactWay = t;
+      } else if (CONTACT_PREFIX_RE.test(t)) {
+        contactWay = normalizeContact(t);
         used.add(i);
       }
     });
@@ -762,7 +876,7 @@ async function handleLead(chatId: string, text: string): Promise<void> {
   }
 
   if (!clientName) {
-    await sendTg(chatId, `❌ Précise au moins le nom du prospect.\nEx: <code>/lead NomClient t2 13</code>`);
+    await sendTg(chatId, `❌ Précise au moins le nom du prospect.\nEx : <code>/lead Lucas t2 13 vin@lucas92</code>`);
     return;
   }
   if (!contactWay) contactWay = `tg@${clientName}`;
@@ -801,48 +915,96 @@ async function handleLead(chatId: string, text: string): Promise<void> {
   );
 }
 
-async function handlePaid(chatId: string, text: string): Promise<void> {
-  const query = text.replace(/^\/paid\s*/i, "").trim().toLowerCase();
+async function handleClient(chatId: string, text: string): Promise<void> {
+  const query = text.replace(/^\/client\s*/i, "").trim();
   if (!query) {
-    await sendTg(chatId, `❌ Format : <code>/paid NomClient</code>`);
+    await sendTg(chatId, `❌ Format : <code>/client Antox</code>`);
+    return;
+  }
+  const orders = await fetchAllOrders();
+  const matches = orders.filter(
+    (o) => o.client.toLowerCase().includes(query.toLowerCase()) || o.contact.toLowerCase().includes(query.toLowerCase())
+  );
+  if (matches.length === 0) {
+    await sendTg(chatId, `❌ Aucun client trouvé pour <code>${escHtml(query)}</code>.`);
     return;
   }
 
-  const mainRead = await callBridge({ action: "read", sheet: MAIN_SHEET, range: "C8:J500" });
-  const rows: any[][] = mainRead.values || [];
+  const blocks = matches.slice(-3).map((o) => {
+    return (
+      `👤 <b>${escHtml(o.client)}</b> <i>(Ligne ${o.rowNum})</i>\n` +
+      `📅 Ajouté : ${escHtml(o.date || "—")}\n` +
+      `📦 Commande : <code>${escHtml(o.order || "—")}</code> (${escHtml(formatProductsReadable(o.order))})\n` +
+      `💶 Prix : <b>${escHtml(o.priceDisplay || "—")}</b>\n` +
+      `📌 Statut : <b>${escHtml(o.status)}</b> · Colis : <b>${escHtml(o.orderStatus)}</b>\n` +
+      `💬 Contact : <code>${escHtml(o.contact || "—")}</code>` +
+      (o.vintedUser ? `\n🛍️ Pseudo Vinted : <code>${escHtml(o.vintedUser)}</code>` : "") +
+      (o.link ? `\n🔗 ${escHtml(o.link)}` : "")
+    );
+  });
 
-  // Find latest matching row whose status is not already "Payé"
-  let foundIdx = -1;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const client = String(rows[i][0] ?? "").trim();
-    const status = String(rows[i][3] ?? "").trim().toLowerCase();
-    if (client && client.toLowerCase().includes(query) && status !== "payé") {
-      foundIdx = i;
-      break;
-    }
+  await sendTg(chatId, blocks.join("\n\n━━━━━━━━━━\n\n"));
+}
+
+async function handlePending(chatId: string): Promise<void> {
+  const orders = await fetchAllOrders();
+  const pending = orders.filter((o) => o.status.toLowerCase() === "commandé");
+  if (pending.length === 0) {
+    await sendTg(chatId, "✅ Aucune précommande en attente !");
+    return;
   }
 
-  if (foundIdx === -1) {
+  let total = 0;
+  const lines = pending.map((o, idx) => {
+    if (!isNaN(o.price)) total += o.price;
+    const tag = o.contact.startsWith("tt@") ? "📱TT" : o.contact.startsWith("vin@") ? "🛍️VIN" : "✈️TG";
+    return `${idx + 1}. <b>${escHtml(o.client)}</b> — <code>${escHtml(o.order)}</code> · <b>${escHtml(o.priceDisplay)}</b> (${tag})`;
+  });
+
+  await sendTg(
+    chatId,
+    `⏳ <b>COMMANDES EN ATTENTE (${pending.length}) — Total : ${formatEuroFr(total)}</b>\n\n` +
+      lines.join("\n") +
+      `\n\n<i>💡 Pour relancer un client : <code>/msg update en Nom</code> ou <code>/msg order fr Nom</code></i>`
+  );
+}
+
+async function handlePaid(chatId: string, text: string): Promise<void> {
+  const body = text.replace(/^\/paid\s*/i, "").trim();
+  if (!body) {
+    await sendTg(chatId, `❌ Format : <code>/paid NomClient</code>\n<i>(Optionnel : <code>/paid Kyle vin@pseudo_vinted</code>)</i>`);
+    return;
+  }
+
+  const tokens = body.split(/\s+/).filter(Boolean);
+  let vintedPseudo = "";
+  const queryTokens: string[] = [];
+  for (const t of tokens) {
+    if (/^(vin@|vinted@|v@)/i.test(t)) {
+      vintedPseudo = t.replace(/^(vin@|vinted@|v@)/i, "");
+    } else {
+      queryTokens.push(t);
+    }
+  }
+  const query = queryTokens.join(" ");
+
+  const orders = await fetchAllOrders();
+  const found = findClientOrder(orders, query, (o) => o.status.toLowerCase() !== "payé" && o.status.toLowerCase() !== "annulé");
+  if (!found) {
     await sendTg(chatId, `❌ Aucune commande non payée trouvée pour <code>${escHtml(query)}</code>.`);
     return;
   }
 
-  const rowNum = 8 + foundIdx;
-  const clientName = String(rows[foundIdx][0]).trim();
-  const rawOrder = String(rows[foundIdx][1] ?? "").trim();
-  const priceVal = parsePrice(rows[foundIdx][2]);
+  const writes: Array<{ row: number; col: number; value: string }> = [
+    { row: found.rowNum, col: 6, value: "Payé" },
+    { row: found.rowNum, col: 10, value: "À expédier" },
+  ];
+  if (vintedPseudo) writes.push({ row: found.rowNum, col: 8, value: vintedPseudo });
 
-  await callBridge({
-    action: "batchCells",
-    sheet: MAIN_SHEET,
-    writes: [
-      { row: rowNum, col: 6, value: "Payé" },
-      { row: rowNum, col: 10, value: "À poster" },
-    ],
-  });
+  await callBridge({ action: "batchCells", sheet: MAIN_SHEET, writes });
 
-  // Decrement Stock Physique for each item in order
-  const items = parseProductItems(rawOrder);
+  // Decrement Stock Physique
+  const items = parseProductItems(found.order);
   const stockRead = await callBridge({ action: "read", sheet: STOCK_SHEET, range: "A2:D8" });
   const sRows: any[][] = stockRead.values || [];
   const stockWrites: Array<{ row: number; col: number; value: number }> = [];
@@ -865,10 +1027,96 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
   await sendTg(
     chatId,
     `💸✅ <b>PAIEMENT VALIDÉ !</b>\n` +
-      `👤 Client : <b>${escHtml(clientName)}</b> (Ligne ${rowNum})\n` +
-      `📦 Commande : <code>${escHtml(rawOrder)}</code> (${isNaN(priceVal) ? "-" : formatEuroFr(priceVal)})\n` +
-      `📌 Statut : <b>Payé</b> · <b>À poster</b>` +
+      `👤 Client : <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum})\n` +
+      `📦 Commande : <code>${escHtml(found.order)}</code> (${escHtml(found.priceDisplay)})\n` +
+      (vintedPseudo ? `🛍️ Pseudo Vinted : <code>${escHtml(vintedPseudo)}</code>\n` : "") +
+      `📌 Statut : <b>Payé</b> · <b>À expédier</b>` +
       (stockChanges.length > 0 ? `\n\n<b>Stock physique mis à jour :</b>\n${stockChanges.join("\n")}` : "")
+  );
+}
+
+async function handleShip(chatId: string, text: string): Promise<void> {
+  const query = text.replace(/^\/ship\s*/i, "").trim();
+  if (!query) {
+    await sendTg(chatId, `❌ Format : <code>/ship NomClient</code>`);
+    return;
+  }
+  const orders = await fetchAllOrders();
+  const found = findClientOrder(orders, query);
+  if (!found) {
+    await sendTg(chatId, `❌ Client introuvable : <code>${escHtml(query)}</code>`);
+    return;
+  }
+  await callBridge({
+    action: "setCell",
+    sheet: MAIN_SHEET,
+    row: found.rowNum,
+    col: 10,
+    value: "Expédié",
+  });
+  await sendTg(
+    chatId,
+    `🚚 <b>Colis marqué EXPÉDIÉ !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)`
+  );
+}
+
+async function handleDone(chatId: string, text: string): Promise<void> {
+  const body = text.replace(/^\/done\s*/i, "").trim();
+  if (!body) {
+    await sendTg(chatId, `❌ Format : <code>/done NomClient</code> ou <code>/done fr NomClient</code>`);
+    return;
+  }
+  const tokens = body.split(/\s+/).filter(Boolean);
+  let lang: "EN" | "FR" = "EN";
+  if (tokens[0] && /^(fr|en)$/i.test(tokens[0])) {
+    lang = tokens.shift()!.toUpperCase() === "FR" ? "FR" : "EN";
+  }
+  const query = tokens.join(" ");
+
+  const orders = await fetchAllOrders();
+  const found = findClientOrder(orders, query);
+  if (!found) {
+    await sendTg(chatId, `❌ Client introuvable : <code>${escHtml(query)}</code>`);
+    return;
+  }
+  await callBridge({
+    action: "batchCells",
+    sheet: MAIN_SHEET,
+    writes: [
+      { row: found.rowNum, col: 6, value: "Payé" },
+      { row: found.rowNum, col: 10, value: "Reçu" },
+    ],
+  });
+  await sendTg(
+    chatId,
+    `📦✅ <b>Commande marquée REÇUE !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum})\n\n👇 <b>Message Avis 5★ prêt à envoyer (${lang}) :</b>`
+  );
+  await sendTg(chatId, buildReviewMessage(lang), undefined);
+}
+
+async function handleCancel(chatId: string, text: string): Promise<void> {
+  const query = text.replace(/^\/cancel\s*/i, "").trim();
+  if (!query) {
+    await sendTg(chatId, `❌ Format : <code>/cancel NomClient</code>`);
+    return;
+  }
+  const orders = await fetchAllOrders();
+  const found = findClientOrder(orders, query, (o) => o.status.toLowerCase() !== "annulé");
+  if (!found) {
+    await sendTg(chatId, `❌ Aucune commande active trouvée pour <code>${escHtml(query)}</code>.`);
+    return;
+  }
+  await callBridge({
+    action: "batchCells",
+    sheet: MAIN_SHEET,
+    writes: [
+      { row: found.rowNum, col: 6, value: "Annulé" },
+      { row: found.rowNum, col: 10, value: "Annulé" },
+    ],
+  });
+  await sendTg(
+    chatId,
+    `❌ <b>Commande annulée !</b>\n👤 <b>${escHtml(found.client)}</b> (Ligne ${found.rowNum} · <code>${escHtml(found.order)}</code>)\n<i>Ses tubes ont été libérés dans l'onglet Stock ✅</i>`
   );
 }
 
@@ -920,6 +1168,9 @@ async function handleDate(chatId: string, text: string): Promise<void> {
   );
 }
 
+// ============================================================
+// Message Templates (EN & FR)
+// ============================================================
 function buildClientMessage(
   mode: "order" | "pre",
   lang: "EN" | "FR",
@@ -985,6 +1236,49 @@ function buildClientMessage(
   );
 }
 
+function buildUpdateMessage(
+  lang: "EN" | "FR",
+  productsText: string,
+  price: number,
+  link: string,
+  restockEn: string,
+  restockFr: string
+): string {
+  if (lang === "FR") {
+    return (
+      `Salut ! Tout d'abord sincèrement désolé pour l'attente 🙏🏻 Le restock a pris un peu plus de temps que prévu en transit, mais il devrait enfin arriver ${restockFr} 🔥\n\n` +
+      `Petit rappel de ta commande réservée :\n` +
+      `📦 Commande : ${productsText}\n` +
+      `💶 Total : ${formatEuroFr(price)}\n` +
+      `🔗 Lien Vinted réservé : ${link}\n\n` +
+      `Pour rappel : l'annonce est toujours masquée pour l'instant (c'est normal si tu ne peux pas encore l'ouvrir). Dès que je reçois le stock, je t'envoie une photo de ta commande et j'ouvre le lien pour que tu puisses payer direct 🤝\n\n` +
+      `Comme ça fait un petit moment que tu attends, tu me confirmes que c'est toujours bon pour toi que je te garde tes tubes de côté ? 🫡`
+    );
+  }
+  return (
+    `Hey! First, I'm really sorry for the wait 🙏🏻 The restock took a little longer in transit than expected, but it should finally land on ${restockEn} 🔥\n\n` +
+    `Quick recap of your reserved order:\n` +
+    `📦 Order: ${productsText}\n` +
+    `💶 Total: ${formatEuroEn(price)}\n` +
+    `🔗 Reserved Vinted link: ${link}\n\n` +
+    `Reminder: the link is still hidden for now (totally normal if you can't open it yet). As soon as the stock lands, I'll send you a photo of your order and unlock the link so you can pay right away 🤝\n\n` +
+    `Since you've been waiting a bit, quick check: is everything still good on your side so I keep your tubes locked for you? 🫡`
+  );
+}
+
+function buildReviewMessage(lang: "EN" | "FR"): string {
+  if (lang === "FR") {
+    return (
+      `Ton colis est livré ! 📦✅\n` +
+      `J'espère que tout est carré ! Si t'es satisfait, mets-moi un petit avis 5 étoiles sur Vinted (sans jamais mentionner le produit 🙏🏻) et balance une petite photo ici pour le canal d'avis ! 🫡🔥`
+    );
+  }
+  return (
+    `Your package is delivered! 📦✅\n` +
+    `Hope you love it! If you're happy with everything, please leave a 5-star review on Vinted (without mentioning the product 🙏🏻) and drop a quick pic here for our reviews channel! 🫡🔥`
+  );
+}
+
 // ============================================================
 // Vercel Web Standard HTTP Handlers
 // ============================================================
@@ -1030,10 +1324,22 @@ export async function POST(request: Request): Promise<Response> {
       await handleBooking(chatId, text, "order");
     } else if (/^\/pre\b/i.test(text)) {
       await handleBooking(chatId, text, "pre");
+    } else if (/^\/msg\b/i.test(text)) {
+      await handleMsg(chatId, text);
     } else if (/^\/(lead|demarchage)\b/i.test(text)) {
       await handleLead(chatId, text);
+    } else if (/^\/client\b/i.test(text)) {
+      await handleClient(chatId, text);
+    } else if (/^\/pending\b/i.test(text)) {
+      await handlePending(chatId);
     } else if (/^\/paid\b/i.test(text)) {
       await handlePaid(chatId, text);
+    } else if (/^\/ship\b/i.test(text)) {
+      await handleShip(chatId, text);
+    } else if (/^\/done\b/i.test(text)) {
+      await handleDone(chatId, text);
+    } else if (/^\/cancel\b/i.test(text)) {
+      await handleCancel(chatId, text);
     } else if (/^\/stats\b/i.test(text)) {
       await handleStats(chatId);
     } else if (/^\/date\b/i.test(text)) {
