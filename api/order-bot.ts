@@ -212,8 +212,8 @@ async function handleStock(chatId: string, text: string): Promise<void> {
     const incoming = Number(row[6]) || 0;
     const freeLinksCount = Number(row[7]) || 0;
 
-    // Fetch matching free Vinted links from Pool Vinted
-    const poolRes = await callBridge({ action: "read", sheet: POOL_SHEET, range: "A2:G200" });
+    // Fetch matching free Vinted links from Pool Vinted (C4:I500)
+    const poolRes = await callBridge({ action: "read", sheet: POOL_SHEET, range: "C4:I500" });
     const poolRows: any[][] = poolRes.values || [];
     const matchingLinks = poolRows.filter((r) => {
       if (String(r[5]).trim().toLowerCase() !== "libre") return false;
@@ -398,12 +398,12 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
 
   if (!cover) cover = extractCoverFromVintedUrl(link);
 
-  const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "E2:E500" });
-  const colE: any[][] = poolRead.values || [];
-  let targetRow = 2 + colE.length;
-  for (let i = 0; i < colE.length; i++) {
-    if (String(colE[i]?.[0] ?? "").trim() === "") {
-      targetRow = 2 + i;
+  const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "G4:G500" });
+  const colG: any[][] = poolRead.values || [];
+  let targetRow = 4 + colG.length;
+  for (let i = 0; i < colG.length; i++) {
+    if (String(colG[i]?.[0] ?? "").trim() === "") {
+      targetRow = 4 + i;
       break;
     }
   }
@@ -411,7 +411,7 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
   await callBridge({
     action: "write",
     sheet: POOL_SHEET,
-    range: `A${targetRow}:G${targetRow}`,
+    range: `C${targetRow}:I${targetRow}`,
     values: [[account, products, price, cover, link, "Libre", ""]],
   });
 
@@ -428,7 +428,7 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
 
 async function handlePool(chatId: string, text: string): Promise<void> {
   const filterArg = text.replace(/^\/pool\s*/i, "").trim().toLowerCase();
-  const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "A2:G500" });
+  const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "C4:I500" });
   const rows: any[][] = poolRead.values || [];
 
   let free = rows.filter(
@@ -502,7 +502,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   let poolInfo = "Lien fourni manuellement";
 
   if (!chosenLink) {
-    const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "A2:G500" });
+    const poolRead = await callBridge({ action: "read", sheet: POOL_SHEET, range: "C4:I500" });
     const pRows: any[][] = poolRead.values || [];
     const normProd = normalizeProdKey(rawProducts);
 
@@ -532,7 +532,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
       return;
     }
 
-    const poolRow = idx + 2;
+    const poolRow = idx + 4;
     chosenLink = String(pRows[idx][4]).trim();
     poolInfo = `Pool Vinted (Ligne ${poolRow} · ${pRows[idx][0]} · ${pRows[idx][3]})`;
 
@@ -540,8 +540,8 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
       action: "batchCells",
       sheet: POOL_SHEET,
       writes: [
-        { row: poolRow, col: 6, value: "Pris" },
-        { row: poolRow, col: 7, value: clientName },
+        { row: poolRow, col: 8, value: "Pris" },
+        { row: poolRow, col: 9, value: clientName },
       ],
     });
   }
@@ -665,7 +665,7 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
 async function handleStats(chatId: string): Promise<void> {
   const [kpi, pool, stock] = await Promise.all([
     callBridge({ action: "read", sheet: MAIN_SHEET, range: "B5:J5" }),
-    callBridge({ action: "read", sheet: POOL_SHEET, range: "F2:F500" }),
+    callBridge({ action: "read", sheet: POOL_SHEET, range: "H4:H500" }),
     callBridge({ action: "read", sheet: STOCK_SHEET, range: "D9:G9" }),
   ]);
 
