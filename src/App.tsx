@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  ShoppingCart, 
   Star, 
   FileText, 
   ArrowUpRight, 
@@ -19,7 +18,6 @@ import {
   X
 } from 'lucide-react';
 
-import Carousel from './components/Carousel';
 import { isAdminIgnored, setAdminIgnore, syncAdminIgnoreFromUrl } from './utils/analyticsAdmin';
 
 export default function App() {
@@ -35,13 +33,14 @@ export default function App() {
   const resumeTimeoutRef = useRef<number | null>(null);
   const footerTapCountRef = useRef(0);
   const footerTapResetTimerRef = useRef<number | null>(null);
+  const funnelRestoreTimerRef = useRef<number | null>(null);
 
   // Produits et tarifs du bloc Live Menu & Prices
   const menuItems = [
     {
       name: 'Tretinoin',
       strengths: '0.025% / 0.05% / 0.1%',
-      price: '€13.00 to €15.00',
+      price: '€13.00 to €15.50',
       status: '0.05% IN STOCK' as const,
     },
     {
@@ -122,10 +121,18 @@ export default function App() {
   const trackFunnelStep = (stepPath: string, restorePath = '/') => {
     if (isAdminIgnored()) return;
     try {
+      if (funnelRestoreTimerRef.current) {
+        window.clearTimeout(funnelRestoreTimerRef.current);
+      }
       window.history.pushState(null, '', stepPath);
-      window.setTimeout(() => {
-        window.history.replaceState(null, '', restorePath);
-      }, 100);
+      funnelRestoreTimerRef.current = window.setTimeout(() => {
+        try {
+          window.history.replaceState(null, '', restorePath);
+        } catch {
+          // Ignore si bloqué par le navigateur
+        }
+        funnelRestoreTimerRef.current = null;
+      }, 350);
     } catch {
       // Ignore si bloqué par le navigateur
     }
@@ -228,6 +235,9 @@ export default function App() {
       if (footerTapResetTimerRef.current) {
         window.clearTimeout(footerTapResetTimerRef.current);
       }
+      if (funnelRestoreTimerRef.current) {
+        window.clearTimeout(funnelRestoreTimerRef.current);
+      }
     };
   }, []);
 
@@ -308,12 +318,12 @@ export default function App() {
         <div className="w-full relative z-20 bg-[#FF9000] text-black shadow-[0_12px_50px_rgba(255,144,0,0.55)] border-b-4 border-black/20">
           <div className="max-w-xl mx-auto flex items-start justify-between gap-4 px-6 py-6 sm:py-8">
             <div className="flex-1 min-w-0">
-              <p className="flex items-center gap-2.5 text-2xl sm:text-3xl font-black uppercase tracking-tight leading-none">
+              <p className="flex items-center gap-2.5 text-2xl sm:text-3xl font-black uppercase tracking-tight leading-tight">
                 <AlertTriangle className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 animate-pulse" strokeWidth={2.75} />
-                You are on TikTok
+                <span>TikTok blocks Telegram</span>
               </p>
               <p className="mt-2 text-base sm:text-xl font-bold leading-snug">
-                Links may not work here.
+                Open in your browser to access Telegram &amp; order:
               </p>
               <div className="mt-4 inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 bg-black text-white text-lg sm:text-2xl font-extrabold px-5 py-3.5 rounded-2xl shadow-xl">
                 <span>Tap</span>
