@@ -13,7 +13,7 @@ const PRODUCT_CATALOG: Record<string, { name: string; price: number; row: number
   h4: { name: "Hydroquinone 4%", price: 16, row: 8 },
 };
 
-const MAIN_SHEET = "Feuille 1";
+const MAIN_SHEET = "Feuille de commande";
 const POOL_SHEET = "Pool Vinted";
 const STOCK_SHEET = "Stock";
 
@@ -197,6 +197,7 @@ async function handleHelp(chatId: string): Promise<void> {
     `• <code>/order en Kyle Butler t5+a2 27</code> — En stock\n` +
     `• <code>/pre fr Antox Frt t5 14.50</code> — Précommande (lien caché)\n` +
     `  <i>Optionnel : rajoute un lien <code>https://...</code> ou <code>tt@pseudo</code> à la fin</i>\n` +
+    `• <code>/lead Nom t2 13</code> — Ajouter un prospect en <b>démarchage</b>\n` +
     `• <code>/paid Nom</code> — Passe en Payé + déduit le stock physique\n\n` +
     `<b>⚙️ AUTRES :</b>\n` +
     `• <code>/stats</code> — Chiffres globaux du Sheet\n` +
@@ -694,13 +695,110 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
   await sendTg(
     chatId,
     `✅ <b>Commande enregistrée !</b>\n` +
-      `📄 Feuille 1 : Ligne <b>${mainRow}</b> (${escHtml(clientName)} · <code>${escHtml(rawProducts)}</code> · <b>${formatEuroFr(price)}</b>)\n` +
+      `📄 ${MAIN_SHEET} : Ligne <b>${mainRow}</b> (${escHtml(clientName)} · <code>${escHtml(rawProducts)}</code> · <b>${formatEuroFr(price)}</b>)\n` +
       `🔗 Source : ${escHtml(poolInfo)}\n\n` +
       `👇 <b>Copie-colle le message ci-dessous au client :</b>`
   );
 
   const clientMsg = buildClientMessage(mode, lang, readableProducts, price, chosenLink, restockEn, restockFr);
   await sendTg(chatId, clientMsg, undefined);
+}
+
+async function handleLead(chatId: string, text: string): Promise<void> {
+  const body = text.replace(/^\/(lead|demarchage)\s*/i, "").trim();
+  if (!body) {
+    await sendTg(
+      chatId,
+      `❌ Format :\n<code>/lead Nom Client t2 13</code>\n<i>(Optionnel : <code>tt@pseudo</code> ou <code>https://vinted...</code>)</i>`
+    );
+    return;
+  }
+
+  let clientName = "";
+  let rawProducts = "";
+  let price = NaN;
+  let directLink = "";
+  let contactWay = "";
+
+  if (body.includes("|")) {
+    const parts = body.split("|").map((s) => s.trim());
+    clientName = parts[0] || "";
+    rawProducts = parts[1] || "";
+    price = parsePrice(parts[2] ?? "");
+    for (let i = 3; i < parts.length; i++) {
+      if (parts[i].startsWith("http")) directLink = parts[i];
+      else if (parts[i]) contactWay = parts[i];
+    }
+  } else {
+    const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
+    const used = new Set<number>();
+    tokens.forEach((t, i) => {
+      if (/^https?:\/\//i.test(t)) {
+        directLink = t;
+        used.add(i);
+      } else if (/^(tt@|tg@)/i.test(t)) {
+        contactWay = t;
+        used.add(i);
+      }
+    });
+    const prodList: string[] = [];
+    tokens.forEach((t, i) => {
+      if (used.has(i)) return;
+      if (isProductToken(t)) {
+        prodList.push(t.replace(/\+/g, " ; "));
+        used.add(i);
+      }
+    });
+    rawProducts = prodList.join(" ; ");
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      if (used.has(i)) continue;
+      if (isPriceToken(tokens[i])) {
+        price = parsePrice(tokens[i]);
+        used.add(i);
+        break;
+      }
+    }
+    clientName = tokens.filter((_, i) => !used.has(i)).join(" ").trim();
+  }
+
+  if (!clientName) {
+    await sendTg(chatId, `❌ Précise au moins le nom du prospect.\nEx: <code>/lead NomClient t2 13</code>`);
+    return;
+  }
+  if (!contactWay) contactWay = `tg@${clientName}`;
+
+  const mainRead = await callBridge({ action: "read", sheet: MAIN_SHEET, range: "C8:C500" });
+  const colC: any[][] = mainRead.values || [];
+  let mainRow = 8 + colC.length;
+  for (let i = 0; i < colC.length; i++) {
+    if (String(colC[i]?.[0] ?? "").trim() === "") {
+      mainRow = 8 + i;
+      break;
+    }
+  }
+
+  const writes: Array<{ row: number; col: number; value: string | number }> = [
+    { row: mainRow, col: 2, value: todayParis() },
+    { row: mainRow, col: 3, value: clientName },
+    { row: mainRow, col: 6, value: "démarchage" },
+    { row: mainRow, col: 7, value: contactWay },
+    { row: mainRow, col: 10, value: "Pas payé" },
+  ];
+  if (rawProducts) writes.push({ row: mainRow, col: 4, value: rawProducts });
+  if (!isNaN(price)) writes.push({ row: mainRow, col: 5, value: price });
+  if (directLink) writes.push({ row: mainRow, col: 9, value: directLink });
+
+  await callBridge({ action: "batchCells", sheet: MAIN_SHEET, writes });
+
+  await sendTg(
+    chatId,
+    `🎯 <b>Prospect ajouté en démarchage !</b>\n` +
+      `📄 ${MAIN_SHEET} : Ligne <b>${mainRow}</b>\n` +
+      `👤 Client : <b>${escHtml(clientName)}</b> (${escHtml(contactWay)})\n` +
+      (rawProducts ? `📦 Produit(s) : <code>${escHtml(rawProducts)}</code>\n` : "") +
+      (!isNaN(price) ? `💶 Prix estimé : <b>${formatEuroFr(price)}</b>\n` : "") +
+      `📌 Statut : <b>démarchage</b> · <b>Pas payé</b>`
+  );
 }
 
 async function handlePaid(chatId: string, text: string): Promise<void> {
@@ -932,6 +1030,8 @@ export async function POST(request: Request): Promise<Response> {
       await handleBooking(chatId, text, "order");
     } else if (/^\/pre\b/i.test(text)) {
       await handleBooking(chatId, text, "pre");
+    } else if (/^\/(lead|demarchage)\b/i.test(text)) {
+      await handleLead(chatId, text);
     } else if (/^\/paid\b/i.test(text)) {
       await handlePaid(chatId, text);
     } else if (/^\/stats\b/i.test(text)) {
