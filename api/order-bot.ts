@@ -89,6 +89,24 @@ function resolveProductCode(input: string): string | null {
   return null;
 }
 
+function isProductToken(token: string): boolean {
+  return /^(\d+x?)?(t2|t5|t1|a1|a2|ta1|h4)([;+,](\d+x?)?(t2|t5|t1|a1|a2|ta1|h4))*$/i.test(token.trim());
+}
+
+function isPriceToken(token: string): boolean {
+  if (!/^€?\d+([.,]\d{1,2})?€?$/.test(token.trim())) return false;
+  const n = parsePrice(token);
+  return !isNaN(n) && n > 0 && n < 500;
+}
+
+function normalizeSpacingAroundSeparators(input: string): string {
+  // Ne touche jamais aux URLs ni aux virgules décimales (ex: 14,50)
+  return input
+    .split(/(https?:\/\/\S+)/gi)
+    .map((chunk) => (/^https?:\/\//i.test(chunk) ? chunk : chunk.replace(/\s*([;+])\s*/g, "+")))
+    .join("");
+}
+
 function extractCoverFromVintedUrl(url: string): string {
   const m = url.match(/\/items\/\d+-([^/?#]+)/i);
   if (!m) return "Fake Cover";
@@ -172,13 +190,13 @@ async function handleHelp(chatId: string): Promise<void> {
     `• <code>/restock t2 23</code> — Modifier la colonne Restock à venir\n` +
     `• <code>/arrive</code> — Transfère tout le Restock reçu dans le Stock Physique\n\n` +
     `<b>🔗 POOL VINTED :</b>\n` +
-    `• <code>/add compte1 | t5 | 14.50 | https://vinted...</code>\n` +
-    `  <i>(La Fake Cover est extraite toute seule du lien !)</i>\n` +
+    `• <code>/add moncompte t5 14.50 https://vinted...</code>\n` +
+    `  <i>(Nom de compte libre, zéro <code>|</code> obligatoire, Fake Cover auto !)</i>\n` +
     `• <code>/pool</code> ou <code>/pool t5</code> — Voir les liens Libres\n\n` +
     `<b>🛒 COMMANDES &amp; MESSAGES CLIENTS :</b>\n` +
-    `• <code>/order EN | Nom | t5 ; a2 | 27</code> — En stock\n` +
-    `• <code>/pre FR | Nom | t2 | 13</code> — Précommande (lien caché)\n` +
-    `  <i>Optionnel à la fin : <code>| https://vinted...</code> ou <code>| tt@pseudo</code></i>\n` +
+    `• <code>/order en Kyle Butler t5+a2 27</code> — En stock\n` +
+    `• <code>/pre fr Antox Frt t5 14.50</code> — Précommande (lien caché)\n` +
+    `  <i>Optionnel : rajoute un lien <code>https://...</code> ou <code>tt@pseudo</code> à la fin</i>\n` +
     `• <code>/paid Nom</code> — Passe en Payé + déduit le stock physique\n\n` +
     `<b>⚙️ AUTRES :</b>\n` +
     `• <code>/stats</code> — Chiffres globaux du Sheet\n` +
@@ -360,7 +378,7 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
   if (!body) {
     await sendTg(
       chatId,
-      `❌ Format :\n<code>/add compte1 | t5 | 14.50 | https://www.vinted.fr/items/...</code>\n(Optionnel en 5e : <code>| Description fake cover</code>)`
+      `❌ Format ultra-rapide (sans <code>|</code>) :\n<code>/add moncompte t5 14.50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5+a2 27 https://www.vinted.fr/items/...</code>`
     );
     return;
   }
@@ -378,20 +396,51 @@ async function handleAddPool(chatId: string, text: string): Promise<void> {
     priceRaw = parts[2] || "";
     link = parts[3] || "";
     cover = parts[4] || "";
-  } else {
-    const parts = body.split(/\s+/);
+  } else if (body.includes("\n")) {
+    const parts = body.split("\n").map((s) => s.trim()).filter(Boolean);
     account = parts[0] || "";
     products = parts[1] || "";
     priceRaw = parts[2] || "";
     link = parts[3] || "";
-    cover = parts.slice(4).join(" ");
+    cover = parts[4] || "";
+  } else {
+    // Smart space parsing: /add compte 1 t5+a2 27 https://vinted... [optional cover]
+    const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
+    const linkIdx = tokens.findIndex((t) => /^https?:\/\//i.test(t));
+    if (linkIdx !== -1) {
+      link = tokens[linkIdx];
+      if (linkIdx + 1 < tokens.length) {
+        cover = tokens.slice(linkIdx + 1).join(" ");
+      }
+    }
+    const beforeLink = linkIdx !== -1 ? tokens.slice(0, linkIdx) : tokens;
+    let priceIdx = -1;
+    for (let i = beforeLink.length - 1; i >= 0; i--) {
+      if (isPriceToken(beforeLink[i])) {
+        priceIdx = i;
+        priceRaw = beforeLink[i];
+        break;
+      }
+    }
+    const prodIndices: number[] = [];
+    const prodTokens: string[] = [];
+    for (let i = 0; i < beforeLink.length; i++) {
+      if (i === priceIdx) continue;
+      if (isProductToken(beforeLink[i])) {
+        prodIndices.push(i);
+        prodTokens.push(beforeLink[i].replace(/\+/g, " ; "));
+      }
+    }
+    products = prodTokens.join(" ; ");
+    const accTokens = beforeLink.filter((_, i) => i !== priceIdx && !prodIndices.includes(i));
+    account = accTokens.join(" ").trim();
   }
 
   const price = parsePrice(priceRaw);
   if (!account || !products || isNaN(price) || !link.startsWith("http")) {
     await sendTg(
       chatId,
-      `❌ Données invalides.\nExemple :\n<code>/add compte1 | t5 ; a2 | 27 | https://www.vinted.fr/items/...</code>`
+      `❌ Données invalides.\nExemples sans <code>|</code> :\n<code>/add alexis t5 14.50 https://www.vinted.fr/items/...</code>\n<code>/add compte 2 t5+a2 27 https://www.vinted.fr/items/...</code>`
     );
     return;
   }
@@ -470,32 +519,95 @@ async function handlePool(chatId: string, text: string): Promise<void> {
 
 async function handleBooking(chatId: string, text: string, mode: "order" | "pre"): Promise<void> {
   const body = text.replace(/^\/(order|pre)\s*/i, "").trim();
-  const parts = body.split("|").map((s) => s.trim());
-
-  if (parts.length < 4) {
+  if (!body) {
     await sendTg(
       chatId,
-      `❌ Format attendu :\n<code>/${mode} EN | Nom Client | t5 ; a2 | 27</code>\n<i>(Optionnel à la fin : <code>| https://vinted...</code> ou <code>| tt@pseudo</code>)</i>`
+      `❌ Formats ultra-rapides (sans <code>|</code>) :\n<code>/${mode} en Kyle Butler t5+a2 27</code>\n<code>/${mode} fr Antox Frt t5 14.50</code>\n<i>(Optionnel : rajoute <code>https://vinted...</code> ou <code>tt@pseudo</code> à la fin)</i>`
     );
     return;
   }
 
-  const lang: "EN" | "FR" = parts[0].toUpperCase() === "FR" ? "FR" : "EN";
-  const clientName = parts[1];
-  const rawProducts = parts[2];
-  const price = parsePrice(parts[3]);
+  let lang: "EN" | "FR" = "EN";
+  let clientName = "";
+  let rawProducts = "";
+  let price = NaN;
+  let directLink = "";
+  let contactWay = "";
 
-  if (!clientName || !rawProducts || isNaN(price)) {
-    await sendTg(chatId, `❌ Vérifie le nom, les produits et le prix (ex: <code>27</code> ou <code>14.50</code>).`);
-    return;
+  if (body.includes("|") || body.includes("\n")) {
+    const parts = body.split(body.includes("|") ? "|" : "\n").map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 4) {
+      await sendTg(
+        chatId,
+        `❌ Il manque un champ.\nExemple simple :\n<code>/${mode} en Kyle Butler t5+a2 27</code>`
+      );
+      return;
+    }
+    lang = parts[0].toUpperCase() === "FR" ? "FR" : "EN";
+    clientName = parts[1];
+    rawProducts = parts[2];
+    price = parsePrice(parts[3]);
+    for (let i = 4; i < parts.length; i++) {
+      const p = parts[i];
+      if (p.startsWith("http")) directLink = p;
+      else if (p) contactWay = p;
+    }
+  } else {
+    // Smart space parsing: /order en Kyle Butler t5+a2 27 [https://...] [tt@...]
+    const tokens = normalizeSpacingAroundSeparators(body).split(/\s+/).filter(Boolean);
+    let startIdx = 0;
+    if (tokens[0] && /^(en|fr)$/i.test(tokens[0])) {
+      lang = tokens[0].toUpperCase() === "FR" ? "FR" : "EN";
+      startIdx = 1;
+    }
+
+    const work = tokens.slice(startIdx);
+    const used = new Set<number>();
+
+    // Extract link & contact
+    work.forEach((t, i) => {
+      if (/^https?:\/\//i.test(t)) {
+        directLink = t;
+        used.add(i);
+      } else if (/^(tt@|tg@)/i.test(t)) {
+        contactWay = t;
+        used.add(i);
+      }
+    });
+
+    // Extract product codes
+    const prodList: string[] = [];
+    work.forEach((t, i) => {
+      if (used.has(i)) return;
+      if (isProductToken(t)) {
+        prodList.push(t.replace(/\+/g, " ; "));
+        used.add(i);
+      }
+    });
+    rawProducts = prodList.join(" ; ");
+
+    // Extract price (last numeric token < 500 not already used)
+    for (let i = work.length - 1; i >= 0; i--) {
+      if (used.has(i)) continue;
+      if (isPriceToken(work[i])) {
+        price = parsePrice(work[i]);
+        used.add(i);
+        break;
+      }
+    }
+
+    // Everything remaining is the client name (supports multi-word names + numbers like "Goy 1234")
+    clientName = work.filter((_, i) => !used.has(i)).join(" ").trim();
   }
 
-  let directLink = "";
-  let contactWay = `tg@${clientName}`;
-  for (let i = 4; i < parts.length; i++) {
-    const p = parts[i];
-    if (p.startsWith("http")) directLink = p;
-    else if (p) contactWay = p;
+  if (!contactWay) contactWay = `tg@${clientName}`;
+
+  if (!clientName || !rawProducts || isNaN(price)) {
+    await sendTg(
+      chatId,
+      `❌ Vérifie la commande.\nExemples ultra-simples :\n<code>/${mode} en Kyle Butler t5+a2 27</code>\n<code>/${mode} fr Antox t5 14.50</code>`
+    );
+    return;
   }
 
   let chosenLink = directLink;
