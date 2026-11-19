@@ -570,7 +570,7 @@ async function handleBooking(chatId: string, text: string, mode: "order" | "pre"
       if (/^https?:\/\//i.test(t)) {
         directLink = t;
         used.add(i);
-      } else if (/^(tt@|tg@)/i.test(t)) {
+      } else if (/^(tt@|tg@|vinted@|v@|ig@|wa@)/i.test(t)) {
         contactWay = t;
         used.add(i);
       }
@@ -736,7 +736,7 @@ async function handleLead(chatId: string, text: string): Promise<void> {
       if (/^https?:\/\//i.test(t)) {
         directLink = t;
         used.add(i);
-      } else if (/^(tt@|tg@)/i.test(t)) {
+      } else if (/^(tt@|tg@|vinted@|v@|ig@|wa@)/i.test(t)) {
         contactWay = t;
         used.add(i);
       }
