@@ -627,7 +627,7 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
     sheet: MAIN_SHEET,
     writes: [
       { row: rowNum, col: 6, value: "Payé" },
-      { row: rowNum, col: 10, value: "À expédier" },
+      { row: rowNum, col: 10, value: "À poster" },
     ],
   });
 
@@ -657,7 +657,7 @@ async function handlePaid(chatId: string, text: string): Promise<void> {
     `💸✅ <b>PAIEMENT VALIDÉ !</b>\n` +
       `👤 Client : <b>${escHtml(clientName)}</b> (Ligne ${rowNum})\n` +
       `📦 Commande : <code>${escHtml(rawOrder)}</code> (${isNaN(priceVal) ? "-" : formatEuroFr(priceVal)})\n` +
-      `📌 Statut : <b>Payé</b> · <b>À expédier</b>` +
+      `📌 Statut : <b>Payé</b> · <b>À poster</b>` +
       (stockChanges.length > 0 ? `\n\n<b>Stock physique mis à jour :</b>\n${stockChanges.join("\n")}` : "")
   );
 }
