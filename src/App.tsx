@@ -670,7 +670,7 @@ export default function App() {
             </a>
             
             <a
-              href="https://drive.google.com/file/d/1D3twtdEgRI7sNdcnWexUd9nEspUw3ODj/view"
+              href="/guide.pdf"
               onClick={() => trackFunnelStep('/funnel/6-click-pdf-guide')}
               target="_blank"
               rel="noopener noreferrer"
