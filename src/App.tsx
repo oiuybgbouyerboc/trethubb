@@ -101,7 +101,7 @@ export default function App() {
   const faqItems = [
     {
       question: 'How does the Vinted checkout work? Is it safe?',
-      answer: "Message us your order on Telegram and we send you a private disguised Vinted link (like a t-shirt or book). You pay safely through Vinted's buyer protection, and we ship your sealed skincare order within 24h. Never mention skincare or product names on Vinted.",
+      answer: "Our listings are hidden from Vinted search, so always start on Telegram. Message us your order there and we send you a private disguised Vinted link (like a t-shirt or book). You pay safely through Vinted's buyer protection, and we ship your sealed skincare order within 24h. Never mention skincare or product names on Vinted.",
     },
     {
       question: 'Where do you ship from and how fast is delivery?',
@@ -323,7 +323,7 @@ export default function App() {
                 <span>TikTok blocks Telegram</span>
               </p>
               <p className="mt-2 text-base sm:text-xl font-bold leading-snug">
-                Open in your browser to access Telegram &amp; order:
+                Open in your browser to access Telegram &amp; get your Vinted link:
               </p>
               <div className="mt-4 inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 bg-black text-white text-lg sm:text-2xl font-extrabold px-5 py-3.5 rounded-2xl shadow-xl">
                 <span>Tap</span>
@@ -368,7 +368,7 @@ export default function App() {
           </div>
           <div className="flex flex-col items-center justify-center p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-center">
             <Lock className="w-6 h-6 text-[#FF9000] mb-2" />
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-neutral-300">Secure Pay<br/>via Vinted</span>
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-neutral-300">Private Vinted<br/>Link via TG</span>
           </div>
           <div className="flex flex-col items-center justify-center p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-center">
             <Truck className="w-6 h-6 text-[#FF9000] mb-2" />
@@ -378,9 +378,12 @@ export default function App() {
 
 
         {/* Description */}
-        <div className="mb-6 text-center px-4">
-          <p className="text-sm text-neutral-400 font-light leading-relaxed">
-            Discover our selection of <strong className="text-white">premium skincare actives</strong> — including <strong className="text-white">Tretinoin</strong> and <strong className="text-white">Azelaic Acid</strong> — to clear, refine and transform your skin. Authentic products, discreet shipping, real results.
+        <div className="mb-6 text-center px-3">
+          <p className="text-sm text-neutral-300 font-light leading-relaxed">
+            Authentic <strong className="text-white">Tretinoin &amp; Azelaic Acid</strong> shipped in 24h from France.{' '}
+            <strong className="text-[#FF9000]">Not searchable on Vinted</strong> — join{' '}
+            <strong className="text-white">Telegram</strong> to order and get your{' '}
+            <strong className="text-white">private Vinted checkout link</strong>.
           </p>
         </div>
 
@@ -398,7 +401,7 @@ export default function App() {
         </a>
 
         {/* Petit bouton : copier le @ Telegram pour le rechercher manuellement (2e moyen d'accès) */}
-        <div className="mt-2.5 mb-8 flex items-center justify-center gap-2">
+        <div className="mt-2.5 flex items-center justify-center gap-2">
           <span className="text-sm text-neutral-400 font-medium">or</span>
           <button
             type="button"
@@ -418,6 +421,18 @@ export default function App() {
             )}
           </button>
         </div>
+        <p className="mt-2.5 mb-8 text-center text-xs text-neutral-400">
+          Can&apos;t access Telegram?{' '}
+          <a
+            href="https://www.tiktok.com/@tret.hub"
+            onClick={() => trackFunnelStep('/funnel/8-fallback-tiktok-dm')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#FF9000] hover:underline font-medium"
+          >
+            DM @tret.hub on TikTok
+          </a>
+        </p>
 
         {/* Bloc compact : Live Menu & Prices */}
         <div className="bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 mb-8 shadow-2xl">
@@ -540,7 +555,7 @@ export default function App() {
               </div>
               <div className="pb-2">
                 <h4 className="text-white text-sm font-semibold">Join the Telegram Channel</h4>
-                <p className="text-neutral-400 text-xs mt-1 leading-relaxed">Browse our full menu and prices (Tretinoin, Azelaic, etc).</p>
+                <p className="text-neutral-400 text-xs mt-1 leading-relaxed">Browse our full menu and prices (Tretinoin, Azelaic, etc). Can&apos;t access Telegram? DM <strong className="text-white">@tret.hub</strong> on TikTok.</p>
               </div>
             </div>
             
@@ -560,8 +575,8 @@ export default function App() {
                 <div className="w-6 h-6 rounded-full bg-[#FF9000] text-black font-bold text-xs flex items-center justify-center z-10 shrink-0">3</div>
               </div>
               <div>
-                <h4 className="text-white text-sm font-semibold">Secure Stealth Checkout</h4>
-                <p className="text-neutral-400 text-xs mt-1 leading-relaxed">We send you a custom Vinted link (like a t-shirt or book). You buy it, but we ship your skincare order 100% securely.</p>
+                <h4 className="text-white text-sm font-semibold">Private Vinted Link (Sent on Telegram)</h4>
+                <p className="text-neutral-400 text-xs mt-1 leading-relaxed">Don&apos;t search on Vinted — listings are private &amp; hidden. We send your custom disguised Vinted link (like a t-shirt or book) in Telegram DM, then ship your order in 24h.</p>
               </div>
             </div>
           </div>
@@ -677,7 +692,7 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-[#FF9000]" aria-hidden="true">
               <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
             </svg>
-            Follow on TikTok (@tret.hub)
+            Can&apos;t access Telegram? DM @tret.hub on TikTok
           </a>
         </div>
       </main>
